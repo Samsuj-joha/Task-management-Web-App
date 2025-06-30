@@ -3,12 +3,11 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from 'date-fns'
 
-// GET /api/time-entries - Get all time entries
+// GET /api/time-entries - Get user's time entries
 export async function GET(request: Request) {
   try {
-    console.log('=== GET /api/time-entries (Database) ===')
+    console.log('=== GET /api/time-entries ===')
     
     const session = await getServerSession(authOptions)
     
@@ -22,78 +21,55 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
     const filter = searchParams.get('filter') || 'all'
-    const category = searchParams.get('category')
-    const billable = searchParams.get('billable')
 
-    // Build dynamic where clause
+    // Build where clause
     const where: any = {
       userId: session.user.id
     }
 
     // Add search filter
     if (search) {
-      where.description = {
-        contains: search,
-        mode: 'insensitive'
-      }
+      where.OR = [
+        { description: { contains: search, mode: 'insensitive' } },
+        { category: { contains: search, mode: 'insensitive' } }
+      ]
     }
 
-    // Add category filter
-    if (category && category !== 'all') {
-      where.category = category
-    }
-
-    // Add billable filter
-    if (billable && billable !== 'all') {
-      where.billable = billable === 'true'
-    }
-
-    // Add date filter (simplified for string dates)
+    // Add date filter
+    const now = new Date()
     switch (filter) {
       case 'today':
-        const today = format(new Date(), 'yyyy-MM-dd')
-        where.date = today
+        where.date = now.toISOString().split('T')[0]
         break
       case 'week':
-        // For week/month filtering, we'll use createdAt instead
-        const weekStart = startOfWeek(new Date())
-        where.createdAt = {
-          gte: weekStart
+        const startOfWeek = new Date(now)
+        startOfWeek.setDate(now.getDate() - now.getDay())
+        where.date = {
+          gte: startOfWeek.toISOString().split('T')[0]
         }
         break
       case 'month':
-        const monthStart = startOfMonth(new Date())
-        where.createdAt = {
-          gte: monthStart
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        where.date = {
+          gte: startOfMonth.toISOString().split('T')[0]
         }
         break
     }
 
-    // Query database for time entries
     const timeEntries = await prisma.timeEntry.findMany({
       where,
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true
-          }
-        },
         task: {
           select: {
             id: true,
-            title: true,
-            status: true,
-            priority: true
+            name: true,
+            title: true
           }
         },
         project: {
           select: {
             id: true,
-            name: true,
-            status: true
+            name: true
           }
         }
       },
@@ -103,16 +79,15 @@ export async function GET(request: Request) {
       ]
     })
 
-    console.log(`Retrieved ${timeEntries.length} time entries from database`)
+    console.log(`Retrieved ${timeEntries.length} time entries`)
 
     return NextResponse.json({ 
       timeEntries,
-      total: timeEntries.length,
-      message: timeEntries.length === 0 ? 'No time entries found.' : `Found ${timeEntries.length} time entries`
+      total: timeEntries.length
     })
 
   } catch (error) {
-    console.error('Database GET Error:', error)
+    console.error('Time entries GET error:', error)
     return NextResponse.json(
       { error: 'Database error: ' + error.message },
       { status: 500 }
@@ -123,7 +98,7 @@ export async function GET(request: Request) {
 // POST /api/time-entries - Create new time entry
 export async function POST(request: Request) {
   try {
-    console.log('=== POST /api/time-entries (Database) ===')
+    console.log('=== POST /api/time-entries ===')
     
     const session = await getServerSession(authOptions)
     
@@ -137,7 +112,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log('Received time entry data:', JSON.stringify(body, null, 2))
 
-    const { 
+    const {
       description,
       duration,
       startTime,
@@ -150,14 +125,13 @@ export async function POST(request: Request) {
     } = body
 
     // Validate required fields
-    if (!description || !duration || !startTime || !endTime || !date) {
+    if (!description || !duration || !date) {
       return NextResponse.json(
-        { error: 'Description, duration, start time, end time, and date are required' },
+        { error: 'Description, duration, and date are required' },
         { status: 400 }
       )
     }
 
-    // Validate duration
     if (duration <= 0) {
       return NextResponse.json(
         { error: 'Duration must be greater than 0' },
@@ -165,59 +139,95 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create new time entry
+    // Ensure user exists
+    let user = await prisma.user.findUnique({
+      where: { id: session.user.id }
+    })
+
+    if (!user) {
+      console.log('User does not exist, creating user:', session.user.id)
+      user = await prisma.user.create({
+        data: {
+          id: session.user.id,
+          email: session.user.email || 'unknown@email.com',
+          name: session.user.name || session.user.email || 'Unknown User',
+          isActive: true,
+          role: 'EMPLOYEE',
+          status: 'ACTIVE'
+        }
+      })
+      console.log('Created missing user:', user.id)
+    }
+
+    // Verify task exists if provided
+    if (taskId && taskId !== 'none') {
+      const task = await prisma.task.findUnique({
+        where: { id: taskId }
+      })
+      if (!task) {
+        return NextResponse.json(
+          { error: 'Task not found' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Verify project exists if provided
+    if (projectId && projectId !== 'none') {
+      const project = await prisma.project.findUnique({
+        where: { id: projectId }
+      })
+      if (!project) {
+        return NextResponse.json(
+          { error: 'Project not found' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Create time entry
     const timeEntry = await prisma.timeEntry.create({
       data: {
         description,
         duration: parseInt(duration),
-        startTime: new Date(startTime),
-        endTime: new Date(endTime),
+        startTime: new Date(startTime || `${date}T09:00:00`),
+        endTime: new Date(endTime || `${date}T${Math.floor(parseInt(duration) / 60).toString().padStart(2, '0')}:${(parseInt(duration) % 60).toString().padStart(2, '0')}:00`),
         date,
         category: category || 'Development',
-        billable: billable !== false,
+        billable: billable !== false, // Default to true
         userId: session.user.id,
-        taskId: taskId || null,
-        projectId: projectId || null
+        taskId: (taskId && taskId !== 'none') ? taskId : null,
+        projectId: (projectId && projectId !== 'none') ? projectId : null
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true
-          }
-        },
         task: {
           select: {
             id: true,
-            title: true,
-            status: true,
-            priority: true
+            name: true,
+            title: true
           }
         },
         project: {
           select: {
             id: true,
-            name: true,
-            status: true
+            name: true
           }
         }
       }
     })
 
-    console.log(`Time entry created in database: ${timeEntry.id}`)
+    console.log('Time entry created:', timeEntry.id)
 
     return NextResponse.json(
       { 
-        message: 'Time entry created successfully', 
-        timeEntry
+        message: 'Time entry created successfully',
+        entry: timeEntry
       },
       { status: 201 }
     )
 
   } catch (error) {
-    console.error('Database POST Error:', error)
+    console.error('Time entry POST error:', error)
     return NextResponse.json(
       { error: 'Database error: ' + error.message },
       { status: 500 }

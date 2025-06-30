@@ -1,4 +1,4 @@
-// src/app/dashboard/time/page.tsx
+// src/app/dashboard/time/page.tsx (FIXED VERSION)
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
@@ -52,11 +52,11 @@ export default function TimeTrackingPage() {
   const [startTime, setStartTime] = useState<Date | null>(null)
   const [currentDuration, setCurrentDuration] = useState(0)
   const [timerDescription, setTimerDescription] = useState('')
-  const [timerTask, setTimerTask] = useState('')
-  const [timerProject, setTimerProject] = useState('')
+  const [timerTask, setTimerTask] = useState('none') // FIXED: Use 'none' instead of empty string
+  const [timerProject, setTimerProject] = useState('none') // FIXED: Use 'none' instead of empty string
   const [timerCategory, setTimerCategory] = useState('Development')
 
-  // Form data
+  // Form data - FIXED: Use 'none' for optional selects
   const [formData, setFormData] = useState({
     description: '',
     duration: '',
@@ -65,8 +65,8 @@ export default function TimeTrackingPage() {
     date: format(new Date(), 'yyyy-MM-dd'),
     category: 'Development',
     billable: true,
-    taskId: '',
-    projectId: ''
+    taskId: 'none', // FIXED: Use 'none' instead of empty string
+    projectId: 'none' // FIXED: Use 'none' instead of empty string
   })
 
   // API calls
@@ -152,8 +152,8 @@ export default function TimeTrackingPage() {
       date: format(startTime, 'yyyy-MM-dd'),
       category: timerCategory,
       billable: true,
-      taskId: timerTask || null,
-      projectId: timerProject || null
+      taskId: timerTask === 'none' ? null : timerTask, // FIXED: Convert 'none' to null
+      projectId: timerProject === 'none' ? null : timerProject // FIXED: Convert 'none' to null
     }
 
     const success = await createTimeEntry(timeEntryData)
@@ -162,8 +162,8 @@ export default function TimeTrackingPage() {
       setStartTime(null)
       setCurrentDuration(0)
       setTimerDescription('')
-      setTimerTask('')
-      setTimerProject('')
+      setTimerTask('none') // FIXED: Reset to 'none'
+      setTimerProject('none') // FIXED: Reset to 'none'
       toast.success(`Timer stopped! Logged ${duration} minutes`)
     }
   }
@@ -193,8 +193,8 @@ export default function TimeTrackingPage() {
       date: format(new Date(), 'yyyy-MM-dd'),
       category: 'Development',
       billable: true,
-      taskId: '',
-      projectId: ''
+      taskId: 'none', // FIXED: Reset to 'none'
+      projectId: 'none' // FIXED: Reset to 'none'
     })
   }
 
@@ -205,7 +205,7 @@ export default function TimeTrackingPage() {
     }
 
     const duration = parseInt(formData.duration)
-    if (duration <= 0) {
+    if (isNaN(duration) || duration <= 0) {
       toast.error('Duration must be greater than 0')
       return
     }
@@ -226,9 +226,11 @@ export default function TimeTrackingPage() {
       duration,
       startTime: `${formData.date}T${startTime}:00`,
       endTime: `${formData.date}T${endTime}:00`,
-      taskId: formData.taskId || null,
-      projectId: formData.projectId || null
+      taskId: formData.taskId === 'none' ? null : formData.taskId, // FIXED: Convert 'none' to null
+      projectId: formData.projectId === 'none' ? null : formData.projectId // FIXED: Convert 'none' to null
     }
+
+    console.log('Submitting time entry:', entryData) // Debug log
 
     const success = await createTimeEntry(entryData)
     if (success) {
@@ -254,8 +256,8 @@ export default function TimeTrackingPage() {
       duration,
       startTime: `${formData.date}T${formData.startTime}:00`,
       endTime: `${formData.date}T${formData.endTime}:00`,
-      taskId: formData.taskId || null,
-      projectId: formData.projectId || null
+      taskId: formData.taskId === 'none' ? null : formData.taskId, // FIXED: Convert 'none' to null
+      projectId: formData.projectId === 'none' ? null : formData.projectId // FIXED: Convert 'none' to null
     }
 
     const success = await updateTimeEntry(selectedEntry.id, updateData)
@@ -282,8 +284,8 @@ export default function TimeTrackingPage() {
       date: entry.date,
       category: entry.category || 'Development',
       billable: entry.billable,
-      taskId: entry.taskId || '',
-      projectId: entry.projectId || ''
+      taskId: entry.taskId || 'none', // FIXED: Use 'none' for null values
+      projectId: entry.projectId || 'none' // FIXED: Use 'none' for null values
     })
     setIsEditOpen(true)
   }
@@ -422,26 +424,34 @@ export default function TimeTrackingPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="task">Task (Optional)</Label>
-                    <Select value={formData.taskId} onValueChange={(value) => setFormData(prev => ({ ...prev, taskId: value }))}>
+                    <Select 
+                      value={formData.taskId} 
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, taskId: value }))}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select task" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No task</SelectItem>
+                        <SelectItem value="none">No task</SelectItem> {/* FIXED: Use 'none' */}
                         {tasks.map(task => (
-                          <SelectItem key={task.id} value={task.id}>{task.title}</SelectItem>
+                          <SelectItem key={task.id} value={task.id}>
+                            {task.name || task.title}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label htmlFor="project">Project (Optional)</Label>
-                    <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))}>
+                    <Select 
+                      value={formData.projectId} 
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select project" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No project</SelectItem>
+                        <SelectItem value="none">No project</SelectItem> {/* FIXED: Use 'none' */}
                         {projects.map(project => (
                           <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
                         ))}
@@ -542,9 +552,11 @@ export default function TimeTrackingPage() {
                     <SelectValue placeholder="Select task" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No task</SelectItem>
+                    <SelectItem value="none">No task</SelectItem> {/* FIXED: Use 'none' */}
                     {tasks.map(task => (
-                      <SelectItem key={task.id} value={task.id}>{task.title}</SelectItem>
+                      <SelectItem key={task.id} value={task.id}>
+                        {task.name || task.title}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -554,7 +566,7 @@ export default function TimeTrackingPage() {
                     <SelectValue placeholder="Select project" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No project</SelectItem>
+                    <SelectItem value="none">No project</SelectItem> {/* FIXED: Use 'none' */}
                     {projects.map(project => (
                       <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
                     ))}
@@ -724,7 +736,7 @@ export default function TimeTrackingPage() {
                         {format(parseISO(entry.startTime), 'HH:mm')} - {format(parseISO(entry.endTime), 'HH:mm')}
                       </span>
                       {entry.task && (
-                        <Badge variant="secondary">Task: {entry.task.title}</Badge>
+                        <Badge variant="secondary">Task: {entry.task.name || entry.task.title}</Badge>
                       )}
                       {entry.project && (
                         <Badge variant="secondary">Project: {entry.project.name}</Badge>
@@ -844,26 +856,34 @@ export default function TimeTrackingPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="edit-task">Task (Optional)</Label>
-                <Select value={formData.taskId} onValueChange={(value) => setFormData(prev => ({ ...prev, taskId: value }))}>
+                <Select 
+                  value={formData.taskId} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, taskId: value }))}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select task" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No task</SelectItem>
+                    <SelectItem value="none">No task</SelectItem> {/* FIXED: Use 'none' */}
                     {tasks.map(task => (
-                      <SelectItem key={task.id} value={task.id}>{task.title}</SelectItem>
+                      <SelectItem key={task.id} value={task.id}>
+                        {task.name || task.title}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="edit-project">Project (Optional)</Label>
-                <Select value={formData.projectId} onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))}>
+                <Select 
+                  value={formData.projectId} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select project" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No project</SelectItem>
+                    <SelectItem value="none">No project</SelectItem> {/* FIXED: Use 'none' */}
                     {projects.map(project => (
                       <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
                     ))}

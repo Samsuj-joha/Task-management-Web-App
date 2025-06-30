@@ -4,85 +4,13 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-// GET /api/time-entries/[id] - Get single time entry
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    console.log(`=== GET /api/time-entries/${params.id} (Database) ===`)
-    
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const timeEntry = await prisma.timeEntry.findUnique({
-      where: { id: params.id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true
-          }
-        },
-        task: {
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            priority: true
-          }
-        },
-        project: {
-          select: {
-            id: true,
-            name: true,
-            status: true
-          }
-        }
-      }
-    })
-
-    if (!timeEntry) {
-      return NextResponse.json(
-        { error: 'Time entry not found' },
-        { status: 404 }
-      )
-    }
-
-    // Check if user owns this time entry
-    if (timeEntry.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Access denied' },
-        { status: 403 }
-      )
-    }
-
-    return NextResponse.json({ timeEntry })
-
-  } catch (error) {
-    console.error(`Database GET Error for time entry ${params.id}:`, error)
-    return NextResponse.json(
-      { error: 'Database error: ' + error.message },
-      { status: 500 }
-    )
-  }
-}
-
 // PATCH /api/time-entries/[id] - Update time entry
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log(`=== PATCH /api/time-entries/${params.id} (Database) ===`)
+    console.log('=== PATCH /api/time-entries/[id] ===')
     
     const session = await getServerSession(authOptions)
     
@@ -93,12 +21,16 @@ export async function PATCH(
       )
     }
 
+    const { id } = params
     const body = await request.json()
-    const updateData = body.data || body
+    console.log('Updating time entry:', id, body)
 
-    // Check if time entry exists and user owns it
-    const existingEntry = await prisma.timeEntry.findUnique({
-      where: { id: params.id }
+    // Check if time entry exists and belongs to user
+    const existingEntry = await prisma.timeEntry.findFirst({
+      where: {
+        id,
+        userId: session.user.id
+      }
     })
 
     if (!existingEntry) {
@@ -108,75 +40,102 @@ export async function PATCH(
       )
     }
 
-    if (existingEntry.userId !== session.user.id) {
+    const {
+      description,
+      duration,
+      startTime,
+      endTime,
+      date,
+      category,
+      billable,
+      taskId,
+      projectId
+    } = body
+
+    // Validate required fields
+    if (description !== undefined && !description.trim()) {
       return NextResponse.json(
-        { error: 'Access denied' },
-        { status: 403 }
+        { error: 'Description cannot be empty' },
+        { status: 400 }
       )
     }
 
-    // Prepare update object
-    const updateObject: any = {
-      updatedAt: new Date()
+    if (duration !== undefined && duration <= 0) {
+      return NextResponse.json(
+        { error: 'Duration must be greater than 0' },
+        { status: 400 }
+      )
     }
 
-    if (updateData.description !== undefined) updateObject.description = updateData.description
-    if (updateData.duration !== undefined) {
-      const duration = parseInt(updateData.duration)
-      if (duration <= 0) {
+    // Verify task exists if provided
+    if (taskId && taskId !== 'none') {
+      const task = await prisma.task.findUnique({
+        where: { id: taskId }
+      })
+      if (!task) {
         return NextResponse.json(
-          { error: 'Duration must be greater than 0' },
+          { error: 'Task not found' },
           { status: 400 }
         )
       }
-      updateObject.duration = duration
     }
-    if (updateData.startTime !== undefined) updateObject.startTime = new Date(updateData.startTime)
-    if (updateData.endTime !== undefined) updateObject.endTime = new Date(updateData.endTime)
-    if (updateData.date !== undefined) updateObject.date = updateData.date
-    if (updateData.category !== undefined) updateObject.category = updateData.category
-    if (updateData.billable !== undefined) updateObject.billable = updateData.billable
-    if (updateData.taskId !== undefined) updateObject.taskId = updateData.taskId || null
-    if (updateData.projectId !== undefined) updateObject.projectId = updateData.projectId || null
+
+    // Verify project exists if provided
+    if (projectId && projectId !== 'none') {
+      const project = await prisma.project.findUnique({
+        where: { id: projectId }
+      })
+      if (!project) {
+        return NextResponse.json(
+          { error: 'Project not found' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Prepare update data
+    const updateData: any = {}
+    
+    if (description !== undefined) updateData.description = description
+    if (duration !== undefined) updateData.duration = parseInt(duration)
+    if (startTime !== undefined) updateData.startTime = new Date(startTime)
+    if (endTime !== undefined) updateData.endTime = new Date(endTime)
+    if (date !== undefined) updateData.date = date
+    if (category !== undefined) updateData.category = category
+    if (billable !== undefined) updateData.billable = billable
+    if (taskId !== undefined) updateData.taskId = (taskId && taskId !== 'none') ? taskId : null
+    if (projectId !== undefined) updateData.projectId = (projectId && projectId !== 'none') ? projectId : null
 
     // Update time entry
     const updatedEntry = await prisma.timeEntry.update({
-      where: { id: params.id },
-      data: updateObject,
+      where: { id },
+      data: updateData,
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true
-          }
-        },
         task: {
           select: {
             id: true,
-            title: true,
-            status: true,
-            priority: true
+            name: true,
+            title: true
           }
         },
         project: {
           select: {
             id: true,
-            name: true,
-            status: true
+            name: true
           }
         }
       }
     })
 
+    console.log('Time entry updated:', updatedEntry.id)
+
     return NextResponse.json({
       message: 'Time entry updated successfully',
-      timeEntry: updatedEntry
+      entry: updatedEntry
     })
 
   } catch (error) {
-    console.error(`Database PATCH Error for time entry ${params.id}:`, error)
+    console.error('Time entry PATCH error:', error)
     return NextResponse.json(
       { error: 'Database error: ' + error.message },
       { status: 500 }
@@ -190,7 +149,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log(`=== DELETE /api/time-entries/${params.id} (Database) ===`)
+    console.log('=== DELETE /api/time-entries/[id] ===')
     
     const session = await getServerSession(authOptions)
     
@@ -201,9 +160,14 @@ export async function DELETE(
       )
     }
 
-    // Check if time entry exists and user owns it
-    const existingEntry = await prisma.timeEntry.findUnique({
-      where: { id: params.id }
+    const { id } = params
+
+    // Check if time entry exists and belongs to user
+    const existingEntry = await prisma.timeEntry.findFirst({
+      where: {
+        id,
+        userId: session.user.id
+      }
     })
 
     if (!existingEntry) {
@@ -213,24 +177,19 @@ export async function DELETE(
       )
     }
 
-    if (existingEntry.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Access denied' },
-        { status: 403 }
-      )
-    }
-
     // Delete time entry
     await prisma.timeEntry.delete({
-      where: { id: params.id }
+      where: { id }
     })
+
+    console.log('Time entry deleted:', id)
 
     return NextResponse.json({
       message: 'Time entry deleted successfully'
     })
 
   } catch (error) {
-    console.error(`Database DELETE Error for time entry ${params.id}:`, error)
+    console.error('Time entry DELETE error:', error)
     return NextResponse.json(
       { error: 'Database error: ' + error.message },
       { status: 500 }
