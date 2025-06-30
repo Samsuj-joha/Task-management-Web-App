@@ -1,8 +1,9 @@
 
 
-// src/components/layout/sidebar.tsx (Updated with Simple Loading)
+// src/components/layout/sidebar.tsx (Updated with Lookup Management)
 'use client'
 
+import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SimpleLoadingLink } from '@/components/ui/simple-loading'
+import { LookupManager } from '@/components/admin/lookup-manager'
 import { useSidebar } from '@/contexts/sidebar-context'
 import { useTasks } from '@/hooks/use-tasks'
 import { useProjects } from '@/hooks/use-projects'
@@ -28,7 +30,10 @@ import {
   AlertCircle,
   PlayCircle,
   Pause,
-  Target
+  Target,
+  Database,
+  List,
+  ChevronRight
 } from 'lucide-react'
 
 const baseNavigation = [
@@ -92,6 +97,7 @@ const secondaryNavigation = [
 export function Sidebar() {
   const pathname = usePathname()
   const { isOpen, close } = useSidebar()
+  const [showLookupManager, setShowLookupManager] = useState(false)
   
   // Fetch both tasks and projects data for dynamic counts
   const { data: tasksData, isLoading: tasksLoading } = useTasks()
@@ -131,6 +137,11 @@ export function Sidebar() {
   }
 
   const isLoading = tasksLoading || projectsLoading
+
+  const handleLookupManagerClick = () => {
+    setShowLookupManager(true)
+    close() // Close sidebar on mobile
+  }
 
   return (
     <>
@@ -381,6 +392,27 @@ export function Sidebar() {
                     </SimpleLoadingLink>
                   )
                 })}
+
+                {/* NEW: Form Data Manager - Sundar Nav Item */}
+                <Button
+                  variant="ghost"
+                  onClick={handleLookupManagerClick}
+                  className={cn(
+                    'w-full justify-start rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:scale-[1.02]',
+                    'text-muted-foreground hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:text-blue-700',
+                    'border border-transparent hover:border-blue-200 group'
+                  )}
+                >
+                  <div className="flex items-center space-x-3 w-full">
+                    <div className="relative">
+                      <Database className="h-5 w-5 transition-transform group-hover:rotate-12" />
+                      <div className="absolute -top-1 -right-1 h-2 w-2 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity animate-pulse" />
+                    </div>
+                    <span className="flex-1 text-left">Form Data</span>
+                    <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all duration-200 transform group-hover:translate-x-1" />
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-indigo-500/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                </Button>
               </nav>
             </div>
 
@@ -433,6 +465,12 @@ export function Sidebar() {
           </div>
         </div>
       </aside>
+
+      {/* Lookup Manager Modal */}
+      <LookupManager 
+        isOpen={showLookupManager} 
+        onClose={() => setShowLookupManager(false)} 
+      />
     </>
   )
 }

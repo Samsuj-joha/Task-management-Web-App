@@ -1,4 +1,4 @@
-// prisma/schema.prisma
+// prisma/schema.prisma - COMPLETE UPDATED VERSION
 generator client {
   provider = "prisma-client-js"
 }
@@ -127,6 +127,103 @@ model ProjectMember {
   @@map("project_members")
 }
 
+// NEW: Lookup Tables for Dynamic Dropdowns
+model Module {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int?     @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  tasks     Task[]
+  
+  @@map("modules")
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int?     @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  tasks     Task[]
+  
+  @@map("departments")
+}
+
+model TaskType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int?     @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  tasks     Task[]
+  subTasks  SubTask[]
+  
+  @@map("task_types")
+}
+
+model SubTask {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  isActive   Boolean  @default(true)
+  sortOrder  Int?     @default(0)
+  
+  // Optional: Link to specific task types
+  taskTypeId String?
+  taskType   TaskType? @relation(fields: [taskTypeId], references: [id])
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relations
+  tasks      Task[]
+  
+  @@map("sub_tasks")
+}
+
+model ModifyOption {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int?     @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  tasks     Task[]
+  
+  @@map("modify_options")
+}
+
+model Reference {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int?     @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  tasks     Task[]
+  
+  @@map("references")
+}
+
+// UPDATED: Task Model with Foreign Key Relations
 model Task {
   id          String     @id @default(cuid())
   
@@ -137,12 +234,27 @@ model Task {
   // Add new fields from your form
   name        String?    // Task name (will replace title eventually)
   date        DateTime?  // Task creation/start date
-  module      String?    // Module selection
-  devDept     String?    // Development department
-  taskType    String?    // Type of task (Bug Fix, Feature, etc.)
-  subTask     String?    // Sub task details
-  modify      String?    // Modification notes
-  reference   String?    // Reference information
+  
+  // CHANGED: Now using foreign key relations instead of strings
+  moduleId    String?    // Foreign key to Module
+  module      Module?    @relation(fields: [moduleId], references: [id])
+  
+  devDeptId   String?    // Foreign key to Department  
+  devDept     Department? @relation(fields: [devDeptId], references: [id])
+  
+  taskTypeId  String?    // Foreign key to TaskType
+  taskType    TaskType?  @relation(fields: [taskTypeId], references: [id])
+  
+  subTaskId   String?    // Foreign key to SubTask
+  subTask     SubTask?   @relation(fields: [subTaskId], references: [id])
+  
+  modifyId    String?    // Foreign key to ModifyOption
+  modify      ModifyOption? @relation(fields: [modifyId], references: [id])
+  
+  referenceId String?    // Foreign key to Reference
+  reference   Reference? @relation(fields: [referenceId], references: [id])
+  
+  // Keep other existing fields
   trackingNo  String?    // Tracking number
   solveDate   DateTime?  // Target solve date
   sentBy      String?    // Task originator
