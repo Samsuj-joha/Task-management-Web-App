@@ -1,4 +1,4 @@
-// src/components/tasks/task-card.tsx
+// src/components/tasks/task-card.tsx (Enhanced Version)
 'use client'
 
 import { useState } from 'react'
@@ -27,17 +27,20 @@ import {
   AlertTriangle,
   MessageSquare,
   User,
-  Hash,
-  Building2,
-  FileText,
   Target,
-  Settings
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import { formatDistanceToNow, format, isPast } from 'date-fns'
+import { cn } from '@/lib/utils'
 
 interface TaskCardProps {
   task: Task
   onEdit?: (task: Task) => void
+  isExpanded?: boolean
+  onExpandChange?: (taskId: string, expanded: boolean) => void
 }
 
 const statusColors = {
@@ -63,7 +66,7 @@ const statusIcons = {
   CANCELLED: XCircle,
 }
 
-export function TaskCard({ task, onEdit }: TaskCardProps) {
+export function TaskCard({ task, onEdit, isExpanded = false, onExpandChange }: TaskCardProps) {
   const [isUpdating, setIsUpdating] = useState(false)
   const updateTaskMutation = useUpdateTask()
   const deleteTaskMutation = useDeleteTask()
@@ -94,6 +97,10 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
     }
   }
 
+  const handleExpand = () => {
+    onExpandChange?.(task.id, !isExpanded)
+  }
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -103,26 +110,45 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
       .slice(0, 2)
   }
 
-  return (
-    <Card className="hover:shadow-md transition-shadow duration-200 relative h-80 w-full flex flex-col overflow-hidden">
-      {/* Priority indicator bar */}
-      <div 
-        className={`absolute top-0 left-0 w-1 h-full rounded-l-lg ${
-          task.priority === 'URGENT' ? 'bg-red-500' :
-          task.priority === 'HIGH' ? 'bg-orange-500' :
-          task.priority === 'MEDIUM' ? 'bg-yellow-500' : 'bg-green-500'
-        }`} 
-      />
+  // Check if task has expandable content
+  const hasExpandableContent = Boolean(
+    task.subTask || 
+    task.trackingNo || 
+    task.reference || 
+    task.sentBy || 
+    task.solveDate || 
+    (task.tags && task.tags.length > 0) ||
+    (task.comments && task.comments.length > 100) ||
+    (task.description && task.description.length > 100)
+  )
 
+  return (
+    <Card 
+      className={cn(
+        "group relative transition-all duration-300 ease-in-out hover:shadow-lg overflow-hidden",
+        "border-l-4",
+        isExpanded ? "ring-2 ring-primary/20 shadow-xl scale-[1.02] z-10" : "hover:shadow-md",
+        task.priority === 'URGENT' ? 'border-l-red-500' :
+        task.priority === 'HIGH' ? 'border-l-orange-500' :
+        task.priority === 'MEDIUM' ? 'border-l-yellow-500' : 'border-l-green-500'
+      )}
+      style={{
+        height: isExpanded ? 'auto' : '320px',
+        width: '100%',
+        minHeight: '320px',
+        maxHeight: isExpanded ? '600px' : '320px'
+      }}
+    >
+      {/* Fixed Header Section */}
       <CardHeader className="pb-2 flex-shrink-0">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1 mb-2 flex-wrap">
               <StatusIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-              <Badge className={`text-xs px-1.5 py-0.5 ${statusColors[task.status]}`}>
+              <Badge className={cn("text-xs px-1.5 py-0.5", statusColors[task.status])}>
                 {task.status.replace('_', ' ')}
               </Badge>
-              <Badge variant="outline" className={`text-xs px-1.5 py-0.5 ${priorityColors[task.priority]}`}>
+              <Badge variant="outline" className={cn("text-xs px-1.5 py-0.5", priorityColors[task.priority])}>
                 {task.priority}
               </Badge>
               {isOverdue && (
@@ -133,25 +159,24 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
               )}
             </div>
             
-            <h3 className="font-semibold text-sm leading-tight mb-1 line-clamp-2">
+            <h3 className="font-semibold text-sm leading-tight mb-1 line-clamp-2 group-hover:text-primary transition-colors">
               {task.name || task.title}
             </h3>
             
             {/* Compact Task Details */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               {task.module && (
-                <span className="truncate">Module: {task.module}</span>
+                <span className="truncate bg-muted px-2 py-0.5 rounded">Module: {task.module}</span>
               )}
-              {task.taskType && task.module && <span>•</span>}
               {task.taskType && (
-                <span className="truncate">Type: {task.taskType}</span>
+                <span className="truncate bg-muted px-2 py-0.5 rounded">Type: {task.taskType}</span>
               )}
             </div>
           </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0">
+              <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 <MoreVertical className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -196,11 +221,10 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="pt-0 flex-1 min-h-0">
-        <div className="h-full overflow-y-auto space-y-2 pr-1" style={{
-          scrollbarWidth: 'thin',
-          scrollbarColor: '#cbd5e1 transparent'
-        }}>
+      {/* Content Section with Fixed Height */}
+      <CardContent className="pt-0 pb-4 flex flex-col" style={{ height: isExpanded ? 'auto' : '200px' }}>
+        {/* Always Visible Content */}
+        <div className="space-y-2 flex-shrink-0">
           {/* Date Information */}
           <div className="grid grid-cols-1 gap-1 text-xs">
             {task.date && (
@@ -215,77 +239,28 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
             {task.dueDate && (
               <div className="flex items-center">
                 <Clock className="h-3 w-3 mr-1 text-muted-foreground flex-shrink-0" />
-                <span className={`truncate ${isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                <span className={cn(
+                  "truncate",
+                  isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'
+                )}>
                   Due: {format(new Date(task.dueDate), 'MMM d, yyyy')}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Essential Information */}
-          {task.subTask && (
-            <div className="text-xs">
-              <span className="font-medium text-muted-foreground">Sub Task:</span>
-              <p className="text-foreground mt-0.5 line-clamp-2">{task.subTask}</p>
-            </div>
-          )}
-
-          {task.trackingNo && (
-            <div className="text-xs">
-              <span className="font-medium text-muted-foreground">Tracking:</span>
-              <p className="text-foreground mt-0.5 font-mono truncate">{task.trackingNo}</p>
-            </div>
-          )}
-
-          {task.reference && (
-            <div className="text-xs">
-              <span className="font-medium text-muted-foreground">Reference:</span>
-              <p className="text-foreground mt-0.5 line-clamp-2">{task.reference}</p>
-            </div>
-          )}
-
-          {task.sentBy && (
-            <div className="text-xs">
-              <span className="font-medium text-muted-foreground">Sent By:</span>
-              <p className="text-foreground mt-0.5 truncate">{task.sentBy}</p>
-            </div>
-          )}
-
-          {/* Comments */}
-          {(task.comments || task.description) && (
-            <div className="text-xs">
-              <span className="font-medium text-muted-foreground">Comments:</span>
-              <p className="text-foreground mt-0.5 line-clamp-3">{task.comments || task.description}</p>
-            </div>
-          )}
-
-          {/* Solve Date */}
-          {task.solveDate && (
-            <div className="flex items-center text-xs">
-              <Target className="h-3 w-3 mr-1 text-green-600 flex-shrink-0" />
-              <span className="text-green-600 font-medium truncate">
-                Solved: {format(new Date(task.solveDate), 'MMM d, yyyy')}
-              </span>
-            </div>
-          )}
-
-          {/* Project */}
-          {task.project && (
-            <div className="flex items-center text-xs">
-              <div className="h-1.5 w-1.5 rounded-full bg-primary mr-1 flex-shrink-0" />
-              <span className="text-muted-foreground truncate">
-                Project: {task.project.name}
-              </span>
-            </div>
-          )}
-
-          {/* Assignee */}
-          {task.assignee && (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center text-xs min-w-0">
-                <User className="h-3 w-3 mr-1 text-muted-foreground flex-shrink-0" />
-                <span className="text-muted-foreground">Assigned:</span>
+          {/* Project and Assignee Row */}
+          <div className="flex items-center justify-between">
+            {task.project && (
+              <div className="flex items-center text-xs">
+                <div className="h-1.5 w-1.5 rounded-full bg-primary mr-1 flex-shrink-0" />
+                <span className="text-muted-foreground truncate">
+                  Project: {task.project.name}
+                </span>
               </div>
+            )}
+
+            {task.assignee && (
               <div className="flex items-center gap-1 min-w-0">
                 <Avatar className="h-4 w-4 flex-shrink-0">
                   <AvatarImage src={""} alt={task.assignee.name} />
@@ -293,44 +268,138 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
                     {getInitials(task.assignee.name)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-xs font-medium truncate">{task.assignee.name}</span>
+                <span className="text-xs font-medium truncate max-w-20">{task.assignee.name}</span>
               </div>
+            )}
+          </div>
+
+          {/* Comments Preview (Always show first 2 lines) */}
+          {(task.comments || task.description) && (
+            <div className="text-xs">
+              <span className="font-medium text-muted-foreground">Comments:</span>
+              <p className={cn(
+                "text-foreground mt-0.5",
+                isExpanded ? "whitespace-pre-wrap" : "line-clamp-2"
+              )}>
+                {task.comments || task.description}
+              </p>
             </div>
           )}
+        </div>
 
-          {/* Comments count */}
-          {task._count?.comments && task._count.comments > 0 && (
-            <div className="flex items-center text-xs text-muted-foreground">
-              <MessageSquare className="h-3 w-3 mr-1 flex-shrink-0" />
-              <span>{task._count.comments} comment{task._count.comments !== 1 ? 's' : ''}</span>
-            </div>
+        {/* Expandable Content */}
+        <div 
+          className={cn(
+            "transition-all duration-300 ease-in-out overflow-hidden",
+            isExpanded ? "max-h-96 opacity-100 mt-3" : "max-h-0 opacity-0"
           )}
+        >
+          {isExpanded && (
+            <div className="space-y-2 pt-3 border-t">
+              {/* Sub Task */}
+              {task.subTask && (
+                <div className="text-xs">
+                  <span className="font-medium text-muted-foreground">Sub Task:</span>
+                  <p className="text-foreground mt-0.5">{task.subTask}</p>
+                </div>
+              )}
 
-          {/* Tags */}
-          {task.tags && task.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {task.tags.slice(0, 3).map((taskTag) => (
-                <Badge 
-                  key={taskTag.tag.id} 
-                  variant="secondary" 
-                  className="text-xs px-1 py-0"
-                  style={{ backgroundColor: `${taskTag.tag.color}20` }}
-                >
-                  {taskTag.tag.name}
-                </Badge>
-              ))}
-              {task.tags.length > 3 && (
-                <Badge variant="secondary" className="text-xs px-1 py-0">
-                  +{task.tags.length - 3}
-                </Badge>
+              {/* Tracking Number */}
+              {task.trackingNo && (
+                <div className="text-xs">
+                  <span className="font-medium text-muted-foreground">Tracking:</span>
+                  <p className="text-foreground mt-0.5 font-mono bg-muted px-2 py-1 rounded">{task.trackingNo}</p>
+                </div>
+              )}
+
+              {/* Reference */}
+              {task.reference && (
+                <div className="text-xs">
+                  <span className="font-medium text-muted-foreground">Reference:</span>
+                  <p className="text-foreground mt-0.5">{task.reference}</p>
+                </div>
+              )}
+
+              {/* Sent By */}
+              {task.sentBy && (
+                <div className="text-xs">
+                  <span className="font-medium text-muted-foreground">Sent By:</span>
+                  <p className="text-foreground mt-0.5">{task.sentBy}</p>
+                </div>
+              )}
+
+              {/* Solve Date */}
+              {task.solveDate && (
+                <div className="flex items-center text-xs">
+                  <Target className="h-3 w-3 mr-1 text-green-600 flex-shrink-0" />
+                  <span className="text-green-600 font-medium">
+                    Solved: {format(new Date(task.solveDate), 'MMM d, yyyy')}
+                  </span>
+                </div>
+              )}
+
+              {/* Tags */}
+              {task.tags && task.tags.length > 0 && (
+                <div className="space-y-1">
+                  <span className="font-medium text-muted-foreground text-xs">Tags:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {task.tags.map((taskTag) => (
+                      <Badge 
+                        key={taskTag.tag.id} 
+                        variant="secondary" 
+                        className="text-xs px-2 py-0.5"
+                        style={{ backgroundColor: `${taskTag.tag.color}20` }}
+                      >
+                        {taskTag.tag.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Comments count */}
+              {task._count?.comments && task._count.comments > 0 && (
+                <div className="flex items-center text-xs text-muted-foreground">
+                  <MessageSquare className="h-3 w-3 mr-1 flex-shrink-0" />
+                  <span>{task._count.comments} comment{task._count.comments !== 1 ? 's' : ''}</span>
+                </div>
               )}
             </div>
           )}
         </div>
+
+        {/* Spacer to push footer down */}
+        <div className="flex-1"></div>
+
+        {/* Expand/Collapse Button */}
+        {hasExpandableContent && (
+          <div className="pt-2 border-t mt-auto">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExpand}
+              className="w-full h-8 text-xs hover:bg-primary/10 transition-colors"
+            >
+              {isExpanded ? (
+                <>
+                  <EyeOff className="h-3 w-3 mr-2" />
+                  Show Less
+                  <ChevronUp className="h-3 w-3 ml-2" />
+                </>
+              ) : (
+                <>
+                  <Eye className="h-3 w-3 mr-2" />
+                  See More
+                  <ChevronDown className="h-3 w-3 ml-2" />
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </CardContent>
 
-      {/* Footer - Fixed at bottom */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground p-3 pt-2 border-t bg-card flex-shrink-0">
+      {/* Footer - Always Visible at Bottom */}
+      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between text-xs text-muted-foreground p-3 pt-2 border-t bg-card/95 backdrop-blur-sm">
         <span className="truncate">
           {formatDistanceToNow(new Date(task.createdAt), { addSuffix: true })}
         </span>
