@@ -1,0 +1,282 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// NextAuth.js Models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  
+  // Paragon Group specific fields
+  firstName     String?
+  lastName      String?
+  department    String?
+  employeeId    String?   @unique
+  role          UserRole  @default(EMPLOYEE)
+  isActive      Boolean   @default(true)
+  
+  // Additional profile fields
+  phone         String?
+  location      String?
+  bio           String?   @db.Text
+  
+  // Team Management Fields (Added for team module)
+  skills        String[]  @default([])    // Array of skills
+  status        UserStatus @default(ACTIVE) // User status for team
+  joinedAt      DateTime? @default(now())  // When they joined the team
+  lastActive    DateTime? @default(now())  // Last activity timestamp
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  tasks         Task[]
+  assignedTasks Task[]    @relation("TaskAssignee")
+  projects      Project[]
+  projectMembers ProjectMember[]
+  comments      Comment[]
+  timeEntries   TimeEntry[] // Added for time tracking
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// TaskFlow Models
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  priority    Priority @default(MEDIUM)
+  startDate   DateTime?
+  endDate     DateTime?  // This maps to 'deadline' in frontend
+  budget      Float?     // Added budget field
+  color       String?    // Added color field for UI
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  tasks       Task[]
+  members     ProjectMember[]
+  timeEntries TimeEntry[] // Added for time tracking
+  
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String @id @default(cuid())
+  role      ProjectRole @default(MEMBER)
+  joinedAt  DateTime @default(now())
+  
+  // Relations
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  
+  // Keep existing fields for backward compatibility
+  title       String
+  description String?
+  
+  // Add new fields from your form
+  name        String?    // Task name (will replace title eventually)
+  date        DateTime?  // Task creation/start date
+  module      String?    // Module selection
+  devDept     String?    // Development department
+  taskType    String?    // Type of task (Bug Fix, Feature, etc.)
+  subTask     String?    // Sub task details
+  modify      String?    // Modification notes
+  reference   String?    // Reference information
+  trackingNo  String?    // Tracking number
+  solveDate   DateTime?  // Target solve date
+  sentBy      String?    // Task originator
+  comments    String?    // Task comments (will replace description eventually)
+  
+  // Existing fields
+  status      TaskStatus @default(TODO)
+  priority    Priority   @default(MEDIUM)
+  dueDate     DateTime?
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  completedAt DateTime?
+  
+  // Relations
+  creatorId   String
+  creator     User       @relation(fields: [creatorId], references: [id])
+  assigneeId  String?
+  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  projectId   String?
+  project     Project?   @relation(fields: [projectId], references: [id])
+  tags        TaskTag[]
+  taskComments Comment[]
+  timeEntries TimeEntry[] // Added for time tracking
+  
+  @@map("tasks")
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  color     String    @default("#6B7280")
+  
+  createdAt DateTime  @default(now())
+  
+  // Relations
+  tasks     TaskTag[]
+  
+  @@map("tags")
+}
+
+model TaskTag {
+  id     String @id @default(cuid())
+  
+  // Relations
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@unique([taskId, tagId])
+  @@map("task_tags")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  
+  @@map("comments")
+}
+
+// Time Tracking Model (UPDATED)
+model TimeEntry {
+  id          String   @id @default(cuid())
+  description String?  // What was worked on
+  duration    Int      // Duration in minutes
+  startTime   DateTime // When work started
+  endTime     DateTime // When work ended
+  date        String   // Date of the work in YYYY-MM-DD format (for easier querying)
+  
+  // Optional categorization
+  category    String?  // e.g., "Development", "Testing", "Meeting"
+  billable    Boolean  @default(true) // Is this billable time?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId      String?
+  task        Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  
+  @@map("time_entries")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  AWAY
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  CANCELLED
+}
+
+enum ProjectRole {
+  OWNER
+  MANAGER
+  MEMBER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
