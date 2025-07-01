@@ -228,6 +228,9 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
       toast.success("Changes Saved!", {
         description: `${tabConfigs.find(t => t.key === activeTab)?.label} updated successfully.`,
       })
+
+      // Close the form after successful save
+      onClose()
       
     } catch (error) {
       console.error('Failed to save changes:', error)
@@ -320,7 +323,7 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
                 {/* Button Layout for Categories */}
                 <div className="space-y-3">
                   {/* First Row - 3 buttons */}
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2">
                     {tabConfigs.slice(0, 3).map((tab) => {
                       const isActive = activeTab === tab.key
                       const itemCount = editingItems[tab.key]?.filter(item => item.isActive).length || 0
@@ -331,7 +334,7 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
                           variant={isActive ? "default" : "outline"}
                           onClick={() => setActiveTab(tab.key)}
                           className={cn(
-                            "relative h-12 px-3 text-sm font-medium",
+                            "relative h-11 px-2 text-sm font-medium",
                             isActive && "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                           )}
                         >
@@ -353,7 +356,7 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
                   </div>
                   
                   {/* Second Row - 3 buttons */}
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2">
                     {tabConfigs.slice(3, 6).map((tab) => {
                       const isActive = activeTab === tab.key
                       const itemCount = editingItems[tab.key]?.filter(item => item.isActive).length || 0
@@ -364,7 +367,7 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
                           variant={isActive ? "default" : "outline"}
                           onClick={() => setActiveTab(tab.key)}
                           className={cn(
-                            "relative h-12 px-3 text-sm font-medium",
+                            "relative h-11 px-2 text-sm font-medium",
                             isActive && "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                           )}
                         >
@@ -575,7 +578,7 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
                 })}
 
                 {/* Save Section */}
-                <div className="flex flex-col justify-center sm:flex-row justify-between items-start sm:items-center gap-4 pt-6 border-t-2 bg-gradient-to-r from-blue-50 to-purple-50 -mx-6 px-6 -mb-6 pb-6 rounded-b-lg">
+                <div className="flex flex-col justify-center sm:flex-row items-start sm:items-center gap-4 pt-6 border-t-2 bg-gradient-to-r from-blue-50 to-purple-50 -mx-6 px-6 -mb-6 pb-6 rounded-b-lg">
                   <div className="flex gap-3 w-full sm:w-auto">
                     <Button variant="outline" onClick={onClose} disabled={isSaving} size="lg" className="flex-1 sm:flex-none">
                       Cancel
