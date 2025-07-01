@@ -1,4 +1,4 @@
-// src/components/admin/lookup-manager.tsx - IMPROVED VERSION
+// src/components/admin/lookup-manager.tsx - BUTTON LAYOUT VERSION
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -21,12 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
 import {
   Card,
   CardContent,
@@ -71,7 +65,6 @@ interface EditingItem extends LookupItem {
   taskTypeId?: string  // For SubTask
 }
 
-// 🎯 Fixed: Added SubTasks as 6th category
 type LookupType = 'modules' | 'departments' | 'taskTypes' | 'subTasks' | 'modifyOptions' | 'references'
 
 export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
@@ -81,7 +74,7 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
     modules: [],
     departments: [],
     taskTypes: [],
-    subTasks: [],      // 🎯 Added SubTasks
+    subTasks: [],
     modifyOptions: [],
     references: []
   })
@@ -114,7 +107,6 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
           isEditing: false,
           isNew: false
         })),
-        // 🎯 Added SubTasks mapping
         subTasks: lookups.subTasks?.map((item, index) => ({ 
           ...item, 
           isActive: true, 
@@ -247,7 +239,6 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
     }
   }
 
-  // 🎯 Updated: All 6 categories with proper icons and descriptions
   const tabConfigs = [
     { 
       key: 'modules' as const, 
@@ -302,7 +293,7 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto">
+        <DialogContent className="max-w-[100vw] w-full max-h-[95vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 text-2xl">
               <Database className="h-7 w-7 text-primary" />
@@ -313,306 +304,325 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
                 <Badge variant="secondary" className="ml-3">Admin Panel</Badge>
               </div>
             </DialogTitle>
-            <DialogDescription className="text-base">
-              🎯 Manage all 6 dropdown categories for task forms. Add, edit, reorder, or disable items for each category.
-            </DialogDescription>
           </DialogHeader>
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="text-center">
-                <Settings className="h-12 w-12 animate-spin mx-auto mb-6 text-primary" />
-                <p className="text-lg text-muted-foreground">Loading form data...</p>
-                <p className="text-sm text-muted-foreground mt-2">Please wait while we fetch all categories</p>
+          <div className="overflow-y-auto max-h-[calc(95vh-4rem)]">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="text-center">
+                  <Settings className="h-12 w-12 animate-spin mx-auto mb-6 text-primary" />
+                  <p className="text-lg text-muted-foreground">Loading form data...</p>
+                  <p className="text-sm text-muted-foreground mt-2">Please wait while we fetch all categories</p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* 🎯 Better Tab Layout for 6 items */}
-              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as LookupType)}>
-                <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 h-auto">
-                  {tabConfigs.map((tab) => {
-                    const IconComponent = tab.icon
-                    const isActive = activeTab === tab.key
-                    const itemCount = editingItems[tab.key]?.filter(item => item.isActive).length || 0
-                    
-                    return (
-                      <TabsTrigger 
-                        key={tab.key} 
-                        value={tab.key} 
-                        className={cn(
-                          "flex flex-col items-center gap-2 h-auto py-3 px-2 text-xs",
-                          "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                        )}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span className="text-sm">{tab.emoji}</span>
-                          <IconComponent className="h-4 w-4" />
-                        </div>
-                        <div className="text-center">
-                          <div className="font-medium">{tab.label}</div>
+            ) : (
+              <div className="space-y-6 pt-4">
+                {/* Button Layout for Categories */}
+                <div className="space-y-3">
+                  {/* First Row - 3 buttons */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {tabConfigs.slice(0, 3).map((tab) => {
+                      const isActive = activeTab === tab.key
+                      const itemCount = editingItems[tab.key]?.filter(item => item.isActive).length || 0
+                      
+                      return (
+                        <Button
+                          key={tab.key}
+                          variant={isActive ? "default" : "outline"}
+                          onClick={() => setActiveTab(tab.key)}
+                          className={cn(
+                            "relative h-12 px-3 text-sm font-medium",
+                            isActive && "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                          )}
+                        >
+                          {tab.label}
+                          
+                          {/* Notification Badge */}
                           <Badge 
-                            variant={isActive ? "secondary" : "outline"} 
-                            className="text-xs mt-1"
+                            variant={isActive ? "secondary" : "default"}
+                            className={cn(
+                              "absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold",
+                              isActive ? "bg-white text-primary" : "bg-primary text-white"
+                            )}
                           >
                             {itemCount}
                           </Badge>
-                        </div>
-                      </TabsTrigger>
-                    )
-                  })}
-                </TabsList>
+                        </Button>
+                      )
+                    })}
+                  </div>
+                  
+                  {/* Second Row - 3 buttons */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {tabConfigs.slice(3, 6).map((tab) => {
+                      const isActive = activeTab === tab.key
+                      const itemCount = editingItems[tab.key]?.filter(item => item.isActive).length || 0
+                      
+                      return (
+                        <Button
+                          key={tab.key}
+                          variant={isActive ? "default" : "outline"}
+                          onClick={() => setActiveTab(tab.key)}
+                          className={cn(
+                            "relative h-12 px-3 text-sm font-medium",
+                            isActive && "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                          )}
+                        >
+                          {tab.label}
+                          
+                          {/* Notification Badge */}
+                          <Badge 
+                            variant={isActive ? "secondary" : "default"}
+                            className={cn(
+                              "absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold",
+                              isActive ? "bg-white text-primary" : "bg-primary text-white"
+                            )}
+                          >
+                            {itemCount}
+                          </Badge>
+                        </Button>
+                      )
+                    })}
+                  </div>
+                </div>
 
+                {/* Active Tab Content */}
                 {tabConfigs.map((tab) => {
+                  if (activeTab !== tab.key) return null
+                  
                   const IconComponent = tab.icon
                   return (
-                    <TabsContent key={tab.key} value={tab.key} className="space-y-4 mt-6">
-                      <Card className="border-2">
-                        <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
-                          <div className="flex flex-row items-center justify-between space-y-0">
-                            <div className="space-y-2">
-                              <CardTitle className="flex items-center gap-3 text-xl">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-2xl">{tab.emoji}</span>
-                                  <IconComponent className="h-6 w-6 text-primary" />
-                                </div>
-                                <div>
-                                  {tab.label}
-                                  <Badge variant="outline" className="ml-3">
-                                    {currentItems.filter(item => item.isActive).length} active
-                                  </Badge>
-                                </div>
-                              </CardTitle>
-                              <CardDescription className="text-base">
-                                <div>{tab.description}</div>
-                                <div className="text-sm text-blue-600 mt-1">
-                                  <span className="font-medium">Examples:</span> {tab.examples}
-                                </div>
-                              </CardDescription>
-                            </div>
-                            <Button
-                              onClick={() => setShowAddDialog(true)}
-                              size="lg"
-                              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                            >
-                              <Plus className="h-5 w-5" />
-                              Add New {tab.label.slice(0, -1)}
-                            </Button>
+                    <Card key={tab.key} className="border-2">
+                      <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
+                        <div className="flex flex-row items-center justify-between space-y-0">
+                          <div className="space-y-2">
+                            <CardTitle className="flex items-center gap-3 text-xl">
+                              <IconComponent className="h-6 w-6 text-primary" />
+                              <div>
+                                {tab.label}
+                                <Badge variant="outline" className="ml-3">
+                                  {currentItems.filter(item => item.isActive).length} active
+                                </Badge>
+                              </div>
+                            </CardTitle>
+                            <CardDescription className="text-base">
+                              {tab.description}
+                            </CardDescription>
                           </div>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                          <div className="rounded-lg border-2 overflow-hidden">
-                            <Table>
-                              <TableHeader>
-                                <TableRow className="bg-muted/50">
-                                  <TableHead className="w-20 font-semibold">Order</TableHead>
-                                  <TableHead className="font-semibold">Name</TableHead>
-                                  <TableHead className="w-24 font-semibold">Status</TableHead>
-                                  <TableHead className="w-32 font-semibold">Actions</TableHead>
+                          <Button
+                            onClick={() => setShowAddDialog(true)}
+                            size="lg"
+                            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                          >
+                            <Plus className="h-5 w-5" />
+                            Add New {tab.label.slice(0, -1)}
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-6">
+                        <div className="rounded-lg border-2 overflow-x-auto">
+                          <Table className="min-w-full">
+                            <TableHeader>
+                              <TableRow className="bg-muted/50">
+                                <TableHead className="w-20 font-semibold whitespace-nowrap">Order</TableHead>
+                                <TableHead className="font-semibold min-w-[200px]">Name</TableHead>
+                                <TableHead className="w-24 font-semibold whitespace-nowrap">Status</TableHead>
+                                <TableHead className="w-32 font-semibold whitespace-nowrap">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {currentItems.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={4} className="text-center py-16">
+                                    <div className="flex flex-col items-center gap-4">
+                                      <div className="relative">
+                                        <Database className="h-16 w-16 text-muted-foreground/50" />
+                                        <div className="absolute -top-2 -right-2">
+                                          <span className="text-3xl">{tab.emoji}</span>
+                                        </div>
+                                      </div>
+                                      <div className="space-y-2">
+                                        <p className="text-lg font-medium text-muted-foreground">
+                                          No {tab.label.toLowerCase()} found
+                                        </p>
+                                        <p className="text-sm text-muted-foreground max-w-md">
+                                          Click "Add New {tab.label.slice(0, -1)}" to create your first {tab.label.toLowerCase().slice(0, -1)} item. 
+                                          This will appear in task form dropdowns.
+                                        </p>
+                                      </div>
+                                      <Button 
+                                        onClick={() => setShowAddDialog(true)}
+                                        variant="outline"
+                                        className="mt-2"
+                                      >
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Create First Item
+                                      </Button>
+                                    </div>
+                                  </TableCell>
                                 </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {currentItems.length === 0 ? (
-                                  <TableRow>
-                                    <TableCell colSpan={4} className="text-center py-16">
-                                      <div className="flex flex-col items-center gap-4">
-                                        <div className="relative">
-                                          <Database className="h-16 w-16 text-muted-foreground/50" />
-                                          <div className="absolute -top-2 -right-2">
-                                            <span className="text-3xl">{tab.emoji}</span>
-                                          </div>
+                              ) : (
+                                currentItems.map((item, index) => (
+                                  <TableRow 
+                                    key={item.id} 
+                                    className={cn(
+                                      "hover:bg-muted/30 transition-colors",
+                                      !item.isActive && "opacity-60 bg-muted/20"
+                                    )}
+                                  >
+                                    <TableCell>
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                                          {index + 1}
                                         </div>
-                                        <div className="space-y-2">
-                                          <p className="text-lg font-medium text-muted-foreground">
-                                            No {tab.label.toLowerCase()} found
-                                          </p>
-                                          <p className="text-sm text-muted-foreground max-w-md">
-                                            Click "Add New {tab.label.slice(0, -1)}" to create your first {tab.label.toLowerCase().slice(0, -1)} item. 
-                                            This will appear in task form dropdowns.
-                                          </p>
+                                        <div className="flex flex-col gap-1">
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 hover:bg-blue-100"
+                                            onClick={() => handleMoveItem(item.id, 'up')}
+                                            disabled={index === 0}
+                                          >
+                                            <ArrowUp className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 hover:bg-blue-100"
+                                            onClick={() => handleMoveItem(item.id, 'down')}
+                                            disabled={index === currentItems.length - 1}
+                                          >
+                                            <ArrowDown className="h-3 w-3" />
+                                          </Button>
                                         </div>
-                                        <Button 
-                                          onClick={() => setShowAddDialog(true)}
-                                          variant="outline"
-                                          className="mt-2"
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      {item.isEditing ? (
+                                        <Input
+                                          value={item.name}
+                                          onChange={(e) => handleEditItem(item.id, 'name', e.target.value)}
+                                          onBlur={() => handleEditItem(item.id, 'isEditing', false)}
+                                          onKeyPress={(e) => {
+                                            if (e.key === 'Enter') {
+                                              handleEditItem(item.id, 'isEditing', false)
+                                            }
+                                          }}
+                                          autoFocus
+                                          className="h-8 border-2 border-primary/50"
+                                        />
+                                      ) : (
+                                        <div className="flex items-center gap-3">
+                                          <span
+                                            className={cn(
+                                              "cursor-pointer font-medium text-base hover:text-primary transition-colors",
+                                              !item.isActive && "text-muted-foreground line-through"
+                                            )}
+                                            onClick={() => handleEditItem(item.id, 'isEditing', true)}
+                                          >
+                                            {item.name}
+                                          </span>
+                                          {item.isNew && (
+                                            <Badge variant="secondary" className="text-xs animate-pulse">
+                                              New
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        <Switch
+                                          checked={item.isActive}
+                                          onCheckedChange={(checked) => 
+                                            handleEditItem(item.id, 'isActive', checked)
+                                          }
+                                        />
+                                        <span className="text-xs text-muted-foreground">
+                                          {item.isActive ? 'Active' : 'Disabled'}
+                                        </span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 hover:bg-blue-100 hover:text-blue-700"
+                                          onClick={() => handleEditItem(item.id, 'isEditing', true)}
                                         >
-                                          <Plus className="h-4 w-4 mr-2" />
-                                          Create First Item
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 hover:bg-red-100 hover:text-red-700"
+                                          onClick={() => handleDeleteItem(item.id)}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
                                         </Button>
                                       </div>
                                     </TableCell>
                                   </TableRow>
-                                ) : (
-                                  currentItems.map((item, index) => (
-                                    <TableRow 
-                                      key={item.id} 
-                                      className={cn(
-                                        "hover:bg-muted/30 transition-colors",
-                                        !item.isActive && "opacity-60 bg-muted/20"
-                                      )}
-                                    >
-                                      <TableCell>
-                                        <div className="flex items-center gap-3">
-                                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                                            {index + 1}
-                                          </div>
-                                          <div className="flex flex-col gap-1">
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-6 w-6 hover:bg-blue-100"
-                                              onClick={() => handleMoveItem(item.id, 'up')}
-                                              disabled={index === 0}
-                                            >
-                                              <ArrowUp className="h-3 w-3" />
-                                            </Button>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-6 w-6 hover:bg-blue-100"
-                                              onClick={() => handleMoveItem(item.id, 'down')}
-                                              disabled={index === currentItems.length - 1}
-                                            >
-                                              <ArrowDown className="h-3 w-3" />
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      </TableCell>
-                                      <TableCell>
-                                        {item.isEditing ? (
-                                          <Input
-                                            value={item.name}
-                                            onChange={(e) => handleEditItem(item.id, 'name', e.target.value)}
-                                            onBlur={() => handleEditItem(item.id, 'isEditing', false)}
-                                            onKeyPress={(e) => {
-                                              if (e.key === 'Enter') {
-                                                handleEditItem(item.id, 'isEditing', false)
-                                              }
-                                            }}
-                                            autoFocus
-                                            className="h-8 border-2 border-primary/50"
-                                          />
-                                        ) : (
-                                          <div className="flex items-center gap-3">
-                                            <span
-                                              className={cn(
-                                                "cursor-pointer font-medium text-base hover:text-primary transition-colors",
-                                                !item.isActive && "text-muted-foreground line-through"
-                                              )}
-                                              onClick={() => handleEditItem(item.id, 'isEditing', true)}
-                                            >
-                                              {item.name}
-                                            </span>
-                                            {item.isNew && (
-                                              <Badge variant="secondary" className="text-xs animate-pulse">
-                                                New
-                                              </Badge>
-                                            )}
-                                          </div>
-                                        )}
-                                      </TableCell>
-                                      <TableCell>
-                                        <div className="flex items-center gap-2">
-                                          <Switch
-                                            checked={item.isActive}
-                                            onCheckedChange={(checked) => 
-                                              handleEditItem(item.id, 'isActive', checked)
-                                            }
-                                          />
-                                          <span className="text-xs text-muted-foreground">
-                                            {item.isActive ? 'Active' : 'Disabled'}
-                                          </span>
-                                        </div>
-                                      </TableCell>
-                                      <TableCell>
-                                        <div className="flex items-center gap-1">
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 hover:bg-blue-100 hover:text-blue-700"
-                                            onClick={() => handleEditItem(item.id, 'isEditing', true)}
-                                          >
-                                            <Edit className="h-4 w-4" />
-                                          </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 hover:bg-red-100 hover:text-red-700"
-                                            onClick={() => handleDeleteItem(item.id)}
-                                          >
-                                            <Trash2 className="h-4 w-4" />
-                                          </Button>
-                                        </div>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))
-                                )}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
+                                ))
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
+                    </Card>
                   )
                 })}
-              </Tabs>
 
-              {/* Save Section */}
-              <div className="flex justify-between items-center pt-6 border-t-2 bg-gradient-to-r from-blue-50 to-purple-50 -mx-6 px-6 -mb-6 pb-6 rounded-b-lg">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <span className="text-2xl">💡</span>
-                    <span className="font-medium">Pro Tip:</span>
+                {/* Save Section */}
+                <div className="flex flex-col justify-center sm:flex-row justify-between items-start sm:items-center gap-4 pt-6 border-t-2 bg-gradient-to-r from-blue-50 to-purple-50 -mx-6 px-6 -mb-6 pb-6 rounded-b-lg">
+                  <div className="flex gap-3 w-full sm:w-auto">
+                    <Button variant="outline" onClick={onClose} disabled={isSaving} size="lg" className="flex-1 sm:flex-none">
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleSave} 
+                      disabled={isSaving} 
+                      size="lg"
+                      className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 flex items-center gap-2 flex-1 sm:flex-none"
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          Saving Changes...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-5 w-5" />
+                          Save All Changes
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  <span>Changes will be applied to all task forms immediately after saving.</span>
-                </div>
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={onClose} disabled={isSaving} size="lg">
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleSave} 
-                    disabled={isSaving} 
-                    size="lg"
-                    className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 flex items-center gap-2"
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        Saving Changes...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-5 w-5" />
-                        Save All Changes
-                      </>
-                    )}
-                  </Button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Add New Item Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <span className="text-2xl">
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-xl">
                 {tabConfigs.find(t => t.key === activeTab)?.emoji}
               </span>
               Add New {tabConfigs.find(t => t.key === activeTab)?.label.slice(0, -1)}
             </DialogTitle>
-            <DialogDescription className="text-base">
+            <DialogDescription>
               Enter a name for the new {tabConfigs.find(t => t.key === activeTab)?.label.toLowerCase().slice(0, -1)} item.
-              This will appear in the task form dropdown.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="newItemName" className="text-base font-medium">Item Name</Label>
+              <Label htmlFor="newItemName" className="font-medium">Item Name</Label>
               <Input
                 id="newItemName"
                 placeholder={`Enter ${tabConfigs.find(t => t.key === activeTab)?.label.toLowerCase().slice(0, -1)} name...`}
@@ -623,7 +633,6 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
                     handleAddItem()
                   }
                 }}
-                className="text-base"
               />
               <p className="text-sm text-muted-foreground">
                 Example: {tabConfigs.find(t => t.key === activeTab)?.examples?.split(',')[0]}
@@ -631,13 +640,12 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)} size="lg">
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
               Cancel
             </Button>
             <Button 
               onClick={handleAddItem} 
               disabled={!newItemName.trim()}
-              size="lg"
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             >
               <Plus className="h-4 w-4 mr-2" />

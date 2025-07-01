@@ -1,6 +1,6 @@
 
 
-// src/components/layout/sidebar.tsx (Updated with Lookup Management)
+// src/components/layout/sidebar.tsx (Fixed Cursor Behavior)
 'use client'
 
 import { useState } from 'react'
@@ -189,7 +189,7 @@ export function Sidebar() {
                     loadingMessage={item.loadingMessage}
                     onClick={() => close()}
                     className={cn(
-                      'flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors no-underline',
+                      'flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors no-underline cursor-pointer',
                       isActive
                         ? 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -381,7 +381,7 @@ export function Sidebar() {
                       loadingMessage={item.loadingMessage}
                       onClick={() => close()}
                       className={cn(
-                        'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors no-underline',
+                        'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors no-underline cursor-pointer',
                         isActive
                           ? 'bg-primary text-primary-foreground'
                           : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -393,25 +393,30 @@ export function Sidebar() {
                   )
                 })}
 
-                {/* NEW: Form Data Manager - Sundar Nav Item */}
+                {/* Form Data Manager - Fixed Hover Effects */}
                 <Button
                   variant="ghost"
                   onClick={handleLookupManagerClick}
                   className={cn(
-                    'w-full justify-start rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:scale-[1.02]',
-                    'text-muted-foreground hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:text-blue-700',
-                    'border border-transparent hover:border-blue-200 group'
+                    'w-full justify-start rounded-lg px-3 py-2 text-sm font-medium',
+                    'text-muted-foreground transition-all duration-150 ease-out cursor-pointer',
+                    'hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:text-blue-700',
+                    'hover:border-blue-200 border border-transparent',
+                    'focus:outline-none focus:ring-2 focus:ring-blue-500/20',
+                    'group relative overflow-hidden'
                   )}
                 >
-                  <div className="flex items-center space-x-3 w-full">
+                  <div className="flex items-center space-x-3 w-full relative z-10">
                     <div className="relative">
-                      <Database className="h-5 w-5 transition-transform group-hover:rotate-12" />
-                      <div className="absolute -top-1 -right-1 h-2 w-2 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity animate-pulse" />
+                      <Database className="h-5 w-5 transition-transform duration-150 ease-out group-hover:scale-110" />
+                      <div className="absolute -top-1 -right-1 h-2 w-2 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-150 animate-pulse" />
                     </div>
                     <span className="flex-1 text-left">Form Data</span>
-                    <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all duration-200 transform group-hover:translate-x-1" />
+                    <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all duration-150 transform group-hover:translate-x-1" />
                   </div>
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-indigo-500/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                  
+                  {/* Background gradient - smoother animation */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-indigo-500/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                 </Button>
               </nav>
             </div>
@@ -428,7 +433,7 @@ export function Sidebar() {
                   href="/dashboard/tasks?filter=starred"
                   loadingMessage="Loading Starred Tasks..."
                   onClick={() => close()}
-                  className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors no-underline"
+                  className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors no-underline cursor-pointer"
                 >
                   <Star className="h-4 w-4" />
                   <span>Starred Tasks</span>
@@ -437,7 +442,7 @@ export function Sidebar() {
                   href="/dashboard/tasks?filter=recent"
                   loadingMessage="Loading Recent Tasks..."
                   onClick={() => close()}
-                  className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors no-underline"
+                  className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors no-underline cursor-pointer"
                 >
                   <Clock className="h-4 w-4" />
                   <span>Recent</span>
@@ -453,7 +458,7 @@ export function Sidebar() {
               loadingMessage="Loading Settings..."
               onClick={() => close()}
               className={cn(
-                'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors no-underline',
+                'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors no-underline cursor-pointer',
                 pathname === '/dashboard/settings'
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
