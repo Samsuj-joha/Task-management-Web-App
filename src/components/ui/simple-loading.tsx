@@ -62,13 +62,7 @@ export function SimplePageLoading() {
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center">
       <div className="bg-background border rounded-lg shadow-lg p-8 w-full max-w-md mx-4 animate-in fade-in duration-200">
         <div className="flex flex-col items-center space-y-6">
-          {/* Animated Logo */}
-          <div className="relative">
-            <div className="h-16 w-16 bg-primary rounded-lg flex items-center justify-center animate-pulse">
-              <span className="text-primary-foreground font-bold text-xl">TF</span>
-            </div>
-            <div className="absolute -inset-2 bg-gradient-to-r from-primary/20 to-transparent rounded-lg animate-ping" />
-          </div>
+
 
           {/* Loading Spinner */}
           <div className="flex items-center space-x-3">
@@ -83,16 +77,7 @@ export function SimplePageLoading() {
             <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
 
-          {/* Progress Bar */}
-          <div className="w-full space-y-2">
-            <div className="w-full bg-muted rounded-full h-2">
-              <div className="bg-primary h-2 rounded-full animate-pulse" style={{ width: '75%' }} />
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>TaskFlow</span>
-              <span>Loading...</span>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>
