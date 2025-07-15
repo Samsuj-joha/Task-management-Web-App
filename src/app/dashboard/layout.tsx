@@ -1,3 +1,5 @@
+
+
 // // src/app/dashboard/layout.tsx
 // 'use client'
 
@@ -7,6 +9,7 @@
 // import { Header } from '@/components/layout/header'
 // import { Sidebar } from '@/components/layout/sidebar'
 // import { Footer } from '@/components/layout/footer'
+// import { SimplePageLoading } from '@/components/ui/simple-loading' // ← Add this import
 // import { ThemeProvider } from '@/contexts/theme-context'
 // import { SidebarProvider } from '@/contexts/sidebar-context'
 // import { ProfileProvider } from '@/contexts/profile-context'
@@ -86,6 +89,9 @@
 //               </main>
 //             </div>
 //           </div>
+          
+//           {/* Add the loading component here - it will overlay when needed */}
+//           <SimplePageLoading />
 //         </SidebarProvider>
 //       </ProfileProvider>
 //     </ThemeProvider>
@@ -94,7 +100,9 @@
 
 
 
-// src/app/dashboard/layout.tsx
+
+// File 8: Update src/app/dashboard/layout.tsx
+// Add presence provider to dashboard layout
 'use client'
 
 import { useSession } from 'next-auth/react'
@@ -103,7 +111,8 @@ import { useEffect } from 'react'
 import { Header } from '@/components/layout/header'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Footer } from '@/components/layout/footer'
-import { SimplePageLoading } from '@/components/ui/simple-loading' // ← Add this import
+import { SimplePageLoading } from '@/components/ui/simple-loading'
+import { PresenceProvider } from '@/components/presence/presence-provider' // ADD THIS
 import { ThemeProvider } from '@/contexts/theme-context'
 import { SidebarProvider } from '@/contexts/sidebar-context'
 import { ProfileProvider } from '@/contexts/profile-context'
@@ -118,7 +127,7 @@ export default function DashboardLayout({
   const router = useRouter()
 
   useEffect(() => {
-    if (status === 'loading') return // Still loading
+    if (status === 'loading') return
 
     if (status === 'unauthenticated') {
       router.push('/login')
@@ -126,7 +135,7 @@ export default function DashboardLayout({
     }
   }, [status, router])
 
-  // Show loading while checking authentication
+  // Show loading skeleton while checking authentication
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -140,11 +149,11 @@ export default function DashboardLayout({
               <Skeleton key={i} className="h-10 w-full" />
             ))}
           </div>
-          <div className="flex-1 p-6 space-y-6">
-            <Skeleton className="h-8 w-48" />
+          <div className="flex-1 p-6">
+            <Skeleton className="h-8 w-64 mb-6" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full" />
+                <Skeleton key={i} className="h-32 w-full" />
               ))}
             </div>
           </div>
@@ -153,41 +162,31 @@ export default function DashboardLayout({
     )
   }
 
-  // Redirect if not authenticated
   if (status === 'unauthenticated') {
-    return null // Will redirect in useEffect
+    return null
   }
 
-  // Render dashboard if authenticated
   return (
-    <ThemeProvider defaultTheme="system" storageKey="taskflow-ui-theme">
-      <ProfileProvider>
-        <SidebarProvider>
-          <div className="min-h-screen bg-background flex flex-col">
-            {/* Header */}
-            <Header />
-            
-            <div className="flex flex-1">
-              {/* Sidebar */}
-              <Sidebar />
-              
-              {/* Main content */}
-              <main className="flex-1 flex flex-col min-w-0">
-                {/* Page content */}
-                <div className="flex-1 p-4 md:p-6 lg:p-8">
+    <ThemeProvider>
+      <SidebarProvider>
+        <ProfileProvider>
+          <PresenceProvider> {/* ADD THIS: Wrap everything in PresenceProvider */}
+            <div className="min-h-screen bg-background flex flex-col">
+              <Header />
+              <div className="flex flex-1">
+                <Sidebar />
+                <main className="flex-1 p-6 overflow-auto">
                   {children}
-                </div>
-                
-                {/* Footer */}
-                <Footer />
-              </main>
+                </main>
+              </div>
+              <Footer />
+              
+              {/* Global loading spinner */}
+              <SimplePageLoading />
             </div>
-          </div>
-          
-          {/* Add the loading component here - it will overlay when needed */}
-          <SimplePageLoading />
-        </SidebarProvider>
-      </ProfileProvider>
+          </PresenceProvider> {/* END: PresenceProvider */}
+        </ProfileProvider>
+      </SidebarProvider>
     </ThemeProvider>
   )
 }

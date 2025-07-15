@@ -1,4 +1,7 @@
-// // src/app/dashboard/page.tsx
+
+
+
+// // src/app/dashboard/page.tsx - FIXED VERSION
 // 'use client'
 
 // import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -56,16 +59,16 @@
 //     onHold: projects.filter(p => p.status === 'PAUSED').length,
 //   }
 
-//   // Module distribution
+//   // FIXED: Module distribution - properly access .name property
 //   const moduleStats = tasks.reduce((acc, task) => {
-//     const module = task.module || 'Unassigned'
+//     const module = (task.module && task.module.name) ? task.module.name : 'Unassigned'
 //     acc[module] = (acc[module] || 0) + 1
 //     return acc
 //   }, {} as Record<string, number>)
 
-//   // Department distribution
+//   // FIXED: Department distribution - properly access .name property
 //   const deptStats = tasks.reduce((acc, task) => {
-//     const dept = task.devDept || 'Unassigned'
+//     const dept = (task.devDept && task.devDept.name) ? task.devDept.name : 'Unassigned'
 //     acc[dept] = (acc[dept] || 0) + 1
 //     return acc
 //   }, {} as Record<string, number>)
@@ -232,28 +235,31 @@
 //                     <div key={task.id} className="flex items-center space-x-4 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
 //                       <div className="flex-1 space-y-1">
 //                         <p className="text-sm font-medium leading-none">
-//                           {task.name}
+//                           {task.name || task.title}
 //                         </p>
 //                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-//                           {task.module && (
+//                           {/* FIXED: Properly access module name */}
+//                           {task.module && task.module.name && (
 //                             <span className="flex items-center gap-1">
 //                               <Settings className="h-3 w-3" />
-//                               {task.module}
+//                               {task.module.name}
 //                             </span>
 //                           )}
-//                           {task.taskType && (
+//                           {/* FIXED: Properly access taskType name */}
+//                           {task.taskType && task.taskType.name && (
 //                             <span className="flex items-center gap-1">
 //                               <FileText className="h-3 w-3" />
-//                               {task.taskType}
+//                               {task.taskType.name}
 //                             </span>
 //                           )}
 //                           {task.trackingNo && (
 //                             <span className="font-mono">#{task.trackingNo}</span>
 //                           )}
-//                           {task.devDept && (
+//                           {/* FIXED: Properly access devDept name */}
+//                           {task.devDept && task.devDept.name && (
 //                             <span className="flex items-center gap-1">
 //                               <Building2 className="h-3 w-3" />
-//                               {task.devDept}
+//                               {task.devDept.name}
 //                             </span>
 //                           )}
 //                         </div>
@@ -444,9 +450,10 @@
 //                     <div key={task.id} className="flex items-center space-x-3 p-2 rounded-lg border-l-4 border-red-500 bg-red-50/50">
 //                       <AlertCircle className="h-4 w-4 text-red-500" />
 //                       <div className="flex-1">
-//                         <p className="text-sm font-medium">{task.name}</p>
+//                         <p className="text-sm font-medium">{task.name || task.title}</p>
 //                         <p className="text-xs text-muted-foreground">
-//                           {task.module} • {task.taskType}
+//                           {/* FIXED: Safely access module and taskType names */}
+//                           {task.module?.name || 'No Module'} • {task.taskType?.name || 'No Type'}
 //                         </p>
 //                       </div>
 //                     </div>
@@ -496,6 +503,42 @@
 //               )}
 //             </CardContent>
 //           </Card>
+
+//           {/* Department Distribution */}
+//           <Card>
+//             <CardHeader>
+//               <CardTitle>Department Distribution</CardTitle>
+//               <CardDescription>
+//                 Tasks by department
+//               </CardDescription>
+//             </CardHeader>
+//             <CardContent>
+//               {isLoading ? (
+//                 <div className="space-y-2">
+//                   {Array.from({ length: 4 }).map((_, i) => (
+//                     <div key={i} className="flex justify-between">
+//                       <Skeleton className="h-4 w-20" />
+//                       <Skeleton className="h-4 w-8" />
+//                     </div>
+//                   ))}
+//                 </div>
+//               ) : Object.keys(deptStats).length > 0 ? (
+//                 <div className="space-y-2">
+//                   {Object.entries(deptStats)
+//                     .sort(([,a], [,b]) => b - a)
+//                     .slice(0, 5)
+//                     .map(([dept, count]) => (
+//                       <div key={dept} className="flex justify-between items-center text-sm">
+//                         <span className="text-muted-foreground truncate flex-1 mr-2">{dept}</span>
+//                         <Badge variant="secondary">{count}</Badge>
+//                       </div>
+//                     ))}
+//                 </div>
+//               ) : (
+//                 <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
+//               )}
+//             </CardContent>
+//           </Card>
 //         </div>
 //       </div>
 //     </div>
@@ -505,14 +548,18 @@
 
 
 
-// src/app/dashboard/page.tsx - FIXED VERSION
+// File 9: Update src/app/dashboard/page.tsx
+// Add active users widget to dashboard
 'use client'
 
+import { useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
+import { LoadingManager } from '@/components/ui/simple-loading'
+import { ActiveUsersWidget } from '@/components/presence/active-users-widget' // ADD THIS
 import { useTasks } from '@/hooks/use-tasks'
 import { useProjects } from '@/hooks/use-projects'
 import { TaskCard } from '@/components/tasks/task-card'
@@ -541,6 +588,38 @@ export default function DashboardPage() {
   const { data: tasksData, isLoading: tasksLoading } = useTasks()
   const { data: projectsData, isLoading: projectsLoading } = useProjects()
   
+  // Coordinate dashboard loading with global loading manager
+  useEffect(() => {
+    console.log('📊 Dashboard loading state changed:', { tasksLoading, projectsLoading })
+    
+    if (tasksLoading || projectsLoading) {
+      LoadingManager.startLoading('Loading dashboard data...')
+    } else {
+      LoadingManager.stopLoading()
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      LoadingManager.stopLoading()
+    }
+  }, [tasksLoading, projectsLoading])
+
+  // Add initial loading for the entire dashboard
+  useEffect(() => {
+    console.log('🏠 Dashboard mounted - starting initial load')
+    LoadingManager.startLoading('Initializing dashboard...')
+    
+    // Stop after a short delay or when data loads
+    const timer = setTimeout(() => {
+      LoadingManager.stopLoading()
+    }, 1000)
+    
+    return () => {
+      clearTimeout(timer)
+      LoadingManager.stopLoading()
+    }
+  }, [])
+  
   const tasks = tasksData?.tasks || []
   const projects = projectsData?.projects || []
 
@@ -563,14 +642,14 @@ export default function DashboardPage() {
     onHold: projects.filter(p => p.status === 'PAUSED').length,
   }
 
-  // FIXED: Module distribution - properly access .name property
+  // Module distribution - properly access .name property
   const moduleStats = tasks.reduce((acc, task) => {
     const module = (task.module && task.module.name) ? task.module.name : 'Unassigned'
     acc[module] = (acc[module] || 0) + 1
     return acc
   }, {} as Record<string, number>)
 
-  // FIXED: Department distribution - properly access .name property
+  // Department distribution - properly access .name property
   const deptStats = tasks.reduce((acc, task) => {
     const dept = (task.devDept && task.devDept.name) ? task.devDept.name : 'Unassigned'
     acc[dept] = (acc[dept] || 0) + 1
@@ -626,8 +705,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Stats Cards - ADD ACTIVE USERS WIDGET */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        {/* ADD THIS: Active Users Widget */}
+        <ActiveUsersWidget />
+        
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
@@ -699,6 +781,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Rest of your existing dashboard content... */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Tasks */}
         <div className="lg:col-span-2">
@@ -742,14 +825,12 @@ export default function DashboardPage() {
                           {task.name || task.title}
                         </p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          {/* FIXED: Properly access module name */}
                           {task.module && task.module.name && (
                             <span className="flex items-center gap-1">
                               <Settings className="h-3 w-3" />
                               {task.module.name}
                             </span>
                           )}
-                          {/* FIXED: Properly access taskType name */}
                           {task.taskType && task.taskType.name && (
                             <span className="flex items-center gap-1">
                               <FileText className="h-3 w-3" />
@@ -759,7 +840,6 @@ export default function DashboardPage() {
                           {task.trackingNo && (
                             <span className="font-mono">#{task.trackingNo}</span>
                           )}
-                          {/* FIXED: Properly access devDept name */}
                           {task.devDept && task.devDept.name && (
                             <span className="flex items-center gap-1">
                               <Building2 className="h-3 w-3" />
@@ -812,7 +892,7 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Sidebar */}
+        {/* Sidebar - Your existing content continues... */}
         <div className="space-y-6">
           {/* Quick Actions */}
           <Card>
@@ -844,205 +924,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Recent Projects */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Recent Projects</CardTitle>
-                  <CardDescription>Latest project activity</CardDescription>
-                </div>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/dashboard/projects">
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="space-y-2">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-3 w-2/3" />
-                      <Skeleton className="h-2 w-full" />
-                    </div>
-                  ))}
-                </div>
-              ) : recentProjects.length > 0 ? (
-                <div className="space-y-4">
-                  {recentProjects.map((project) => {
-                    const totalTasks = project._count?.tasks || 0
-                    const completedTasks = project.tasks?.filter(t => t.status === 'COMPLETED').length || 0
-                    const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
-                    
-                    return (
-                      <div key={project.id} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Link 
-                            href={`/dashboard/projects/${project.id}`}
-                            className="font-medium text-sm hover:underline truncate"
-                          >
-                            {project.name}
-                          </Link>
-                          <Badge 
-                            variant={project.status === 'ACTIVE' ? 'default' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {project.status}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{project._count?.members || 0} members</span>
-                          <span>•</span>
-                          <span>{totalTasks} tasks</span>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span>{progress}%</span>
-                          </div>
-                          <Progress value={progress} className="h-1" />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <FolderOpen className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground mb-2">No projects yet</p>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href="/dashboard/projects">
-                      <Plus className="mr-2 h-3 w-3" />
-                      Create Project
-                    </Link>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Urgent Tasks */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-red-500" />
-                Urgent Tasks
-              </CardTitle>
-              <CardDescription>
-                High priority tasks requiring attention
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 2 }).map((_, i) => (
-                    <div key={i} className="flex items-center space-x-3">
-                      <Skeleton className="h-4 w-4" />
-                      <div className="flex-1">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-3 w-2/3 mt-1" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : urgentTasks.length > 0 ? (
-                <div className="space-y-3">
-                  {urgentTasks.map((task) => (
-                    <div key={task.id} className="flex items-center space-x-3 p-2 rounded-lg border-l-4 border-red-500 bg-red-50/50">
-                      <AlertCircle className="h-4 w-4 text-red-500" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{task.name || task.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {/* FIXED: Safely access module and taskType names */}
-                          {task.module?.name || 'No Module'} • {task.taskType?.name || 'No Type'}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">No urgent tasks</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Module Distribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Module Distribution</CardTitle>
-              <CardDescription>
-                Tasks by module
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex justify-between">
-                      <Skeleton className="h-4 w-20" />
-                      <Skeleton className="h-4 w-8" />
-                    </div>
-                  ))}
-                </div>
-              ) : Object.keys(moduleStats).length > 0 ? (
-                <div className="space-y-2">
-                  {Object.entries(moduleStats)
-                    .sort(([,a], [,b]) => b - a)
-                    .slice(0, 5)
-                    .map(([module, count]) => (
-                      <div key={module} className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground truncate flex-1 mr-2">{module}</span>
-                        <Badge variant="secondary">{count}</Badge>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Department Distribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Department Distribution</CardTitle>
-              <CardDescription>
-                Tasks by department
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex justify-between">
-                      <Skeleton className="h-4 w-20" />
-                      <Skeleton className="h-4 w-8" />
-                    </div>
-                  ))}
-                </div>
-              ) : Object.keys(deptStats).length > 0 ? (
-                <div className="space-y-2">
-                  {Object.entries(deptStats)
-                    .sort(([,a], [,b]) => b - a)
-                    .slice(0, 5)
-                    .map(([dept, count]) => (
-                      <div key={dept} className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground truncate flex-1 mr-2">{dept}</span>
-                        <Badge variant="secondary">{count}</Badge>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
-              )}
-            </CardContent>
-          </Card>
+          {/* Your existing sidebar content continues... */}
         </div>
       </div>
     </div>
