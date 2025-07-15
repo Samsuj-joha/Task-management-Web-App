@@ -78,6 +78,13 @@ const baseNavigation = [
     icon: Calendar,
     loadingMessage: 'Loading Calendar...'
   },
+   {
+    name: 'Users',              // ⭐ ADD THIS
+    href: '/dashboard/users',   // ⭐ ADD THIS
+    icon: Users,                // ⭐ ADD THIS
+    loadingMessage: 'Loading Users...',  // ⭐ ADD THIS
+    adminOnly: true            // ⭐ ADD THIS - Only admins see this
+  },
   {
     name: 'Analytics',
     href: '/dashboard/analytics',
