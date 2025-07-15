@@ -1,6 +1,6 @@
 
 
-// src/components/layout/sidebar.tsx (Fixed Cursor Behavior)
+// src/components/layout/sidebar.tsx (Updated with Notes)
 'use client'
 
 import { useState } from 'react'
@@ -15,6 +15,7 @@ import { LookupManager } from '@/components/admin/lookup-manager'
 import { useSidebar } from '@/contexts/sidebar-context'
 import { useTasks } from '@/hooks/use-tasks'
 import { useProjects } from '@/hooks/use-projects'
+import { useNotes } from '@/hooks/use-notes' // New hook for notes
 import {
   LayoutDashboard,
   CheckSquare,
@@ -33,7 +34,11 @@ import {
   Target,
   Database,
   List,
-  ChevronRight
+  ChevronRight,
+  BookOpen,      // Notes icon
+  PinIcon,       // Pinned notes
+  Archive,       // Archived notes
+  FileText       // All notes
 } from 'lucide-react'
 
 const baseNavigation = [
@@ -58,6 +63,14 @@ const baseNavigation = [
     showBadge: true,
     badgeKey: 'projects',
     loadingMessage: 'Loading Projects...'
+  },
+  {
+    name: 'Notebook', // NEW: Notes section
+    href: '/dashboard/notes',
+    icon: BookOpen,
+    showBadge: true,
+    badgeKey: 'notes',
+    loadingMessage: 'Loading Notes...'
   },
   {
     name: 'Calendar',
@@ -99,17 +112,20 @@ export function Sidebar() {
   const { isOpen, close } = useSidebar()
   const [showLookupManager, setShowLookupManager] = useState(false)
   
-  // Fetch both tasks and projects data for dynamic counts
+  // Fetch data for dynamic counts
   const { data: tasksData, isLoading: tasksLoading } = useTasks()
   const { data: projectsData, isLoading: projectsLoading } = useProjects()
+  const { data: notesData, isLoading: notesLoading } = useNotes() // New notes hook
   
   const tasks = tasksData?.tasks || []
   const projects = projectsData?.projects || []
+  const notes = notesData?.notes || [] // New notes data
   
   // Calculate dynamic counts
   const counts = {
     tasks: tasks.length,
     projects: projects.length,
+    notes: notes.length, // NEW: Notes count
     inProgress: tasks.filter(t => t.status === 'IN_PROGRESS').length,
     urgent: tasks.filter(t => t.priority === 'URGENT' && t.status !== 'COMPLETED').length,
     overdue: tasks.filter(t => {
@@ -123,6 +139,10 @@ export function Sidebar() {
       if (!p.endDate || p.status === 'COMPLETED') return false
       return new Date(p.endDate) < new Date()
     }).length,
+    // NEW: Notes counts
+    pinnedNotes: notes.filter(n => n.isPinned && !n.isArchived).length,
+    recentNotes: notes.filter(n => !n.isArchived).length,
+    archivedNotes: notes.filter(n => n.isArchived).length,
   }
 
   const getBadgeCount = (badgeKey: string) => {
@@ -131,16 +151,18 @@ export function Sidebar() {
         return counts.tasks
       case 'projects':
         return counts.projects
+      case 'notes': // NEW: Notes badge
+        return counts.notes
       default:
         return 0
     }
   }
 
-  const isLoading = tasksLoading || projectsLoading
+  const isLoading = tasksLoading || projectsLoading || notesLoading
 
   const handleLookupManagerClick = () => {
     setShowLookupManager(true)
-    close() // Close sidebar on mobile
+    close()
   }
 
   return (
@@ -214,6 +236,102 @@ export function Sidebar() {
                 )
               })}
             </nav>
+
+            <Separator className="my-4" />
+
+            {/* NEW: Notes Quick Access Section */}
+            <div>
+              <h4 className="mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Quick Notes
+              </h4>
+              <div className="space-y-2">
+                {isLoading ? (
+                  <>
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <div className="flex items-center space-x-3">
+                        <Skeleton className="h-4 w-4" />
+                        <Skeleton className="h-4 w-16" />
+                      </div>
+                      <Skeleton className="h-5 w-6 rounded-full" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Pinned Notes */}
+                    {counts.pinnedNotes > 0 && (
+                      <SimpleLoadingLink
+                        href="/dashboard/notes?filter=pinned"
+                        loadingMessage="Loading Pinned Notes..."
+                        onClick={() => close()}
+                        className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-lg transition-colors no-underline cursor-pointer"
+                      >
+                        <div className="flex items-center space-x-3 text-amber-600">
+                          <PinIcon className="h-4 w-4" />
+                          <span>Pinned</span>
+                        </div>
+                        <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">
+                          {counts.pinnedNotes}
+                        </Badge>
+                      </SimpleLoadingLink>
+                    )}
+
+                    {/* Recent Notes */}
+                    <SimpleLoadingLink
+                      href="/dashboard/notes?filter=recent"
+                      loadingMessage="Loading Recent Notes..."
+                      onClick={() => close()}
+                      className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-lg transition-colors no-underline cursor-pointer"
+                    >
+                      <div className="flex items-center space-x-3 text-muted-foreground">
+                        <Clock className="h-4 w-4" />
+                        <span>Recent</span>
+                      </div>
+                      {counts.recentNotes > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          {counts.recentNotes}
+                        </Badge>
+                      )}
+                    </SimpleLoadingLink>
+
+                    {/* All Notes */}
+                    <SimpleLoadingLink
+                      href="/dashboard/notes/all"
+                      loadingMessage="Loading All Notes..."
+                      onClick={() => close()}
+                      className="flex items-center space-x-3 px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg transition-colors no-underline cursor-pointer"
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span>All Notes</span>
+                    </SimpleLoadingLink>
+
+                    {/* Archive (only show if there are archived notes) */}
+                    {counts.archivedNotes > 0 && (
+                      <SimpleLoadingLink
+                        href="/dashboard/notes?filter=archived"
+                        loadingMessage="Loading Archived Notes..."
+                        onClick={() => close()}
+                        className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-lg transition-colors no-underline cursor-pointer"
+                      >
+                        <div className="flex items-center space-x-3 text-gray-500">
+                          <Archive className="h-4 w-4" />
+                          <span>Archive</span>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {counts.archivedNotes}
+                        </Badge>
+                      </SimpleLoadingLink>
+                    )}
+
+                    {/* Empty state */}
+                    {counts.notes === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        <span>No notes yet</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
 
             <Separator className="my-4" />
 
@@ -393,7 +511,7 @@ export function Sidebar() {
                   )
                 })}
 
-                {/* Form Data Manager - Fixed Hover Effects */}
+                {/* Form Data Manager */}
                 <Button
                   variant="ghost"
                   onClick={handleLookupManagerClick}
@@ -415,7 +533,6 @@ export function Sidebar() {
                     <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all duration-150 transform group-hover:translate-x-1" />
                   </div>
                   
-                  {/* Background gradient - smoother animation */}
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-indigo-500/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                 </Button>
               </nav>

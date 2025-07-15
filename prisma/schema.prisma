@@ -1,4 +1,4 @@
-// prisma/schema.prisma - COMPLETE UPDATED VERSION
+// prisma/schema.prisma - COMPLETE UPDATED VERSION WITH NOTES SYSTEM
 generator client {
   provider = "prisma-client-js"
 }
@@ -75,7 +75,8 @@ model User {
   projectMembers ProjectMember[]
   comments      Comment[]
   timeEntries   TimeEntry[] // Added for time tracking
-
+  notes         Note[]      // NEW: Notes relation
+  
   @@map("users")
 }
 
@@ -350,6 +351,59 @@ model TimeEntry {
   project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   
   @@map("time_entries")
+}
+
+// ===============================================
+// NEW: NOTES SYSTEM MODELS
+// ===============================================
+
+// Notes System Models
+model NoteCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   @default("#6B7280") // Color for category
+  icon      String?  @default("📝")      // Emoji or icon name
+  isActive  Boolean  @default(true)
+  sortOrder Int?     @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  notes     Note[]
+  
+  @@map("note_categories")
+}
+
+model Note {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  
+  // Organization
+  categoryId  String?
+  category    NoteCategory? @relation(fields: [categoryId], references: [id])
+  
+  // Status and Priority
+  isPinned    Boolean  @default(false)  // Pin important notes
+  isArchived  Boolean  @default(false)  // Archive old notes
+  priority    Priority @default(MEDIUM) // Reuse existing Priority enum
+  
+  // Metadata
+  tags        String[] @default([])     // Array of tags for easy filtering
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastViewedAt DateTime? @default(now()) // Track when note was last opened
+  
+  // Relations
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  
+  // Full-text search support (for PostgreSQL)
+  @@index([title, content])
+  @@map("notes")
 }
 
 // Enums
