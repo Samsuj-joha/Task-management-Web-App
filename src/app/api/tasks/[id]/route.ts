@@ -1,317 +1,242 @@
-
-
-
-// src/app/api/tasks/[id]/route.ts
-// Real database operations for individual tasks
+// src/app/api/tasks/[id]/route.ts - REPLACE ENTIRE FILE
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { withAuth } from '@/lib/auth-middleware'
+import { permissions } from '@/lib/permissions'
 
-// GET /api/tasks/[id] - Get single task from database
+// GET /api/tasks/[id] - Get single task
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  try {
-    console.log(`=== GET /api/tasks/${params.id} (Database) ===`)
-    
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const task = await prisma.task.findUnique({
-      where: { id: params.id },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            department: true
-          }
-        },
-        assignee: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            department: true
-          }
-        },
-        project: {
-          select: {
-            id: true,
-            name: true,
-            status: true
-          }
-        },
-        tags: {
-          include: {
-            tag: true
-          }
-        },
-        taskComments: {
-          include: {
-            author: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
+  return withAuth(async (user) => {
+    try {
+      const task = await prisma.task.findUnique({
+        where: { id: params.id },
+        include: {
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true
             }
           },
-          orderBy: {
-            createdAt: 'desc'
+          assignee: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true
+            }
+          },
+          project: {
+            select: {
+              id: true,
+              name: true,
+              status: true
+            }
+          },
+          tags: {
+            include: {
+              tag: true
+            }
           }
         }
-      }
-    })
+      })
 
-    if (!task) {
-      console.log(`Task ${params.id} not found in database`)
+      if (!task) {
+        return NextResponse.json(
+          { error: 'Task not found' },
+          { status: 404 }
+        )
+      }
+
+      // Check if user can view this task
+      if (!permissions.canEditTask(user, task)) {
+        return NextResponse.json(
+          { error: 'Access denied' },
+          { status: 403 }
+        )
+      }
+
+      return NextResponse.json({ task })
+
+    } catch (error) {
+      console.error(`GET /api/tasks/${params.id} error:`, error)
       return NextResponse.json(
-        { error: 'Task not found' },
-        { status: 404 }
+        { error: 'Failed to fetch task' },
+        { status: 500 }
       )
     }
-
-    // Check if user has access to this task
-    if (task.creatorId !== session.user.id && task.assigneeId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Access denied' },
-        { status: 403 }
-      )
-    }
-
-    // Transform for frontend compatibility
-    const transformedTask = {
-      ...task,
-      name: task.name || task.title,
-      title: task.name || task.title,
-      comments: task.comments || task.description,
-      description: task.comments || task.description,
-      _count: {
-        comments: task.taskComments.length
-      }
-    }
-
-    console.log(`Found task in database: ${task.name || task.title}`)
-    return NextResponse.json({ task: transformedTask })
-
-  } catch (error) {
-    console.error(`Database GET Error for task ${params.id}:`, error)
-    return NextResponse.json(
-      { error: 'Database error: ' + error.message },
-      { status: 500 }
-    )
-  }
+  })
 }
 
-// PUT /api/tasks/[id] - Update single task in database
+// PUT/PATCH /api/tasks/[id] - Update task
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  try {
-    console.log(`=== PUT /api/tasks/${params.id} (Database) ===`)
-    
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+  return withAuth(async (user) => {
+    try {
+      // First, get the existing task
+      const existingTask = await prisma.task.findUnique({
+        where: { id: params.id }
+      })
 
-    const body = await request.json()
-    console.log('Database update data:', JSON.stringify(body, null, 2))
+      if (!existingTask) {
+        return NextResponse.json(
+          { error: 'Task not found' },
+          { status: 404 }
+        )
+      }
 
-    // Check if task exists and user has access
-    const existingTask = await prisma.task.findUnique({
-      where: { id: params.id }
-    })
+      // ⭐ NEW: Check permissions using role-based system
+      if (!permissions.canEditTask(user, existingTask)) {
+        return NextResponse.json(
+          { error: 'You do not have permission to edit this task' },
+          { status: 403 }
+        )
+      }
 
-    if (!existingTask) {
-      console.log(`Task ${params.id} not found for update`)
-      return NextResponse.json(
-        { error: 'Task not found' },
-        { status: 404 }
-      )
-    }
+      const body = await request.json()
+      
+      // Build update object
+      const updateObject: any = {}
+      
+      // Handle all possible update fields
+      if (body.title !== undefined) updateObject.title = body.title
+      if (body.name !== undefined) {
+        updateObject.name = body.name
+        updateObject.title = body.name // Keep both for compatibility
+      }
+      if (body.description !== undefined) updateObject.description = body.description
+      if (body.status !== undefined) updateObject.status = body.status
+      if (body.priority !== undefined) updateObject.priority = body.priority
+      if (body.dueDate !== undefined) updateObject.dueDate = body.dueDate ? new Date(body.dueDate) : null
+      if (body.assigneeId !== undefined) updateObject.assigneeId = body.assigneeId
+      if (body.projectId !== undefined) updateObject.projectId = body.projectId
+      if (body.comments !== undefined) {
+        updateObject.comments = body.comments
+        updateObject.description = body.comments // Keep both for compatibility
+      }
 
-    if (existingTask.creatorId !== session.user.id && existingTask.assigneeId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Access denied' },
-        { status: 403 }
-      )
-    }
+      // Handle completion timestamp
+      if (body.status === 'COMPLETED' && !existingTask.completedAt) {
+        updateObject.completedAt = new Date()
+      } else if (body.status !== 'COMPLETED' && existingTask.completedAt) {
+        updateObject.completedAt = null
+      }
 
-    // Extract update data
-    const updateData = body.data || body
-    console.log('Extracted update data:', JSON.stringify(updateData, null, 2))
-
-    // Prepare update object for database
-    const updateObject: any = {
-      updatedAt: new Date()
-    }
-
-    // Map frontend fields to database fields
-    if (updateData.name !== undefined) {
-      updateObject.name = updateData.name
-      updateObject.title = updateData.name // Keep both for compatibility
-    }
-    if (updateData.date !== undefined) updateObject.date = updateData.date ? new Date(updateData.date) : null
-    if (updateData.module !== undefined) updateObject.module = updateData.module
-    if (updateData.devDept !== undefined) updateObject.devDept = updateData.devDept
-    if (updateData.taskType !== undefined) updateObject.taskType = updateData.taskType
-    if (updateData.subTask !== undefined) updateObject.subTask = updateData.subTask
-    if (updateData.modify !== undefined) updateObject.modify = updateData.modify
-    if (updateData.reference !== undefined) updateObject.reference = updateData.reference
-    if (updateData.trackingNo !== undefined) updateObject.trackingNo = updateData.trackingNo
-    if (updateData.status !== undefined) updateObject.status = updateData.status
-    if (updateData.solveDate !== undefined) updateObject.solveDate = updateData.solveDate ? new Date(updateData.solveDate) : null
-    if (updateData.sentBy !== undefined) updateObject.sentBy = updateData.sentBy
-    if (updateData.comments !== undefined) {
-      updateObject.comments = updateData.comments
-      updateObject.description = updateData.comments // Keep both for compatibility
-    }
-    if (updateData.priority !== undefined) updateObject.priority = updateData.priority
-    if (updateData.dueDate !== undefined) updateObject.dueDate = updateData.dueDate ? new Date(updateData.dueDate) : null
-    if (updateData.assigneeId !== undefined) updateObject.assigneeId = updateData.assigneeId
-    if (updateData.projectId !== undefined) updateObject.projectId = updateData.projectId
-
-    // Handle completion timestamp
-    if (updateData.status === 'COMPLETED' && !existingTask.completedAt) {
-      updateObject.completedAt = new Date()
-    } else if (updateData.status !== 'COMPLETED' && existingTask.completedAt) {
-      updateObject.completedAt = null
-    }
-
-    console.log('Database update object:', JSON.stringify(updateObject, null, 2))
-
-    // Update task in database
-    const updatedTask = await prisma.task.update({
-      where: { id: params.id },
-      data: updateObject,
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            department: true
-          }
-        },
-        assignee: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            department: true
-          }
-        },
-        project: {
-          select: {
-            id: true,
-            name: true,
-            status: true
-          }
-        },
-        tags: {
-          include: {
-            tag: true
+      // Update task
+      const updatedTask = await prisma.task.update({
+        where: { id: params.id },
+        data: updateObject,
+        include: {
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true
+            }
+          },
+          assignee: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true
+            }
+          },
+          project: {
+            select: {
+              id: true,
+              name: true,
+              status: true
+            }
+          },
+          tags: {
+            include: {
+              tag: true
+            }
           }
         }
-      }
-    })
+      })
 
-    // Transform for frontend compatibility
-    const transformedTask = {
-      ...updatedTask,
-      name: updatedTask.name || updatedTask.title,
-      title: updatedTask.name || updatedTask.title,
-      comments: updatedTask.comments || updatedTask.description,
-      description: updatedTask.comments || updatedTask.description
+      console.log(`Task ${params.id} updated by ${user.email} (${user.role})`)
+
+      return NextResponse.json({
+        message: 'Task updated successfully',
+        task: updatedTask
+      })
+
+    } catch (error) {
+      console.error(`PUT /api/tasks/${params.id} error:`, error)
+      return NextResponse.json(
+        { error: 'Failed to update task' },
+        { status: 500 }
+      )
     }
-
-    console.log(`Task ${params.id} updated in database successfully`)
-    console.log(`Status changed from ${existingTask.status} to ${updatedTask.status}`)
-
-    return NextResponse.json({
-      message: 'Task updated in database successfully',
-      task: transformedTask
-    })
-
-  } catch (error) {
-    console.error(`Database PUT Error for task ${params.id}:`, error)
-    return NextResponse.json(
-      { error: 'Database error: ' + error.message },
-      { status: 500 }
-    )
-  }
+  })
 }
 
-// DELETE /api/tasks/[id] - Delete single task from database
+// PATCH - Same as PUT for compatibility
+export const PATCH = PUT
+
+// DELETE /api/tasks/[id] - Delete task with role-based permissions
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  try {
-    console.log(`=== DELETE /api/tasks/${params.id} (Database) ===`)
-    
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
+  return withAuth(async (user) => {
+    try {
+      console.log(`=== DELETE /api/tasks/${params.id} by ${user.email} (${user.role}) ===`)
+
+      // First, get the existing task
+      const existingTask = await prisma.task.findUnique({
+        where: { id: params.id },
+        include: {
+          creator: {
+            select: { name: true, email: true }
+          }
+        }
+      })
+
+      if (!existingTask) {
+        console.log(`Task ${params.id} not found`)
+        return NextResponse.json(
+          { error: 'Task not found' },
+          { status: 404 }
+        )
+      }
+
+      // ⭐ NEW: Check permissions using role-based system
+      if (!permissions.canDeleteTask(user, existingTask)) {
+        console.log(`User ${user.email} (${user.role}) cannot delete task ${params.id} created by ${existingTask.creator?.email}`)
+        return NextResponse.json(
+          { error: 'You do not have permission to delete this task' },
+          { status: 403 }
+        )
+      }
+
+      // Delete task (CASCADE will handle related records)
+      await prisma.task.delete({
+        where: { id: params.id }
+      })
+
+      console.log(`✅ Task ${params.id} deleted successfully by ${user.email} (${user.role})`)
+
+      return NextResponse.json({
+        message: 'Task deleted successfully'
+      })
+
+    } catch (error) {
+      console.error(`DELETE /api/tasks/${params.id} error:`, error)
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Failed to delete task' },
+        { status: 500 }
       )
     }
-
-    // Check if task exists and user has access
-    const existingTask = await prisma.task.findUnique({
-      where: { id: params.id }
-    })
-
-    if (!existingTask) {
-      console.log(`Task ${params.id} not found for deletion`)
-      return NextResponse.json(
-        { error: 'Task not found' },
-        { status: 404 }
-      )
-    }
-
-    // Only creator can delete task
-    if (existingTask.creatorId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Only task creator can delete this task' },
-        { status: 403 }
-      )
-    }
-
-    // Delete task from database (CASCADE will handle related records)
-    await prisma.task.delete({
-      where: { id: params.id }
-    })
-
-    console.log(`Task ${params.id} deleted from database successfully`)
-
-    return NextResponse.json({
-      message: 'Task deleted from database successfully'
-    })
-
-  } catch (error) {
-    console.error(`Database DELETE Error for task ${params.id}:`, error)
-    return NextResponse.json(
-      { error: 'Database error: ' + error.message },
-      { status: 500 }
-    )
-  }
+  })
 }

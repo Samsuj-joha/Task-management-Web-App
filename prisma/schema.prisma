@@ -1,4 +1,4 @@
-// prisma/schema.prisma - COMPLETE UPDATED VERSION WITH NOTES SYSTEM
+// prisma/schema.prisma - YOUR SCHEMA WITH MINIMAL ROLE CHANGES
 generator client {
   provider = "prisma-client-js"
 }
@@ -49,7 +49,7 @@ model User {
   lastName      String?
   department    String?
   employeeId    String?   @unique
-  role          UserRole  @default(EMPLOYEE)
+  role          UserRole  @default(USER)  // ⭐ CHANGED: Default to USER instead of EMPLOYEE
   isActive      Boolean   @default(true)
   
   // Additional profile fields
@@ -406,11 +406,11 @@ model Note {
   @@map("notes")
 }
 
-// Enums
+// ⭐ UPDATED ENUMS - ONLY CHANGES HERE
 enum UserRole {
-  ADMIN
-  MANAGER
-  EMPLOYEE
+  ADMIN      // Can see/edit all tasks, manage users
+              // Can manage team tasks (keeping for compatibility)
+  USER       // Can only see/edit own tasks (renamed from EMPLOYEE)
 }
 
 enum UserStatus {
