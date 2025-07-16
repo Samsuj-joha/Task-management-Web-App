@@ -371,3 +371,63 @@
     transform: scale(1);
   }
 }
+
+
+
+
+
+
+/* Add to your globals.css or create a new layout.css file */
+
+/* Ensure body has proper top padding when using fixed header */
+body {
+  padding-top: 64px; /* 4rem = 64px, matches header height */
+}
+
+/* Fix for main content area to not be hidden behind fixed header */
+.main-content {
+  padding-top: 0; /* Remove any existing padding */
+  min-height: calc(100vh - 64px); /* Subtract header height */
+}
+
+/* Ensure sidebar positioning works correctly with fixed header */
+.sidebar-fixed {
+  top: 64px; /* Start below the header */
+  height: calc(100vh - 64px); /* Full height minus header */
+}
+
+/* Z-index management */
+.header-fixed {
+  z-index: 9999;
+}
+
+.sidebar-mobile {
+  z-index: 9998;
+}
+
+.sidebar-overlay {
+  z-index: 9997;
+}
+
+/* Smooth scrolling for better UX */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Prevent layout shift during loading */
+.layout-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  body {
+    padding-top: 64px; /* Keep same padding on mobile */
+  }
+  
+  .main-content {
+    padding-top: 0;
+  }
+}
