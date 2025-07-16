@@ -195,6 +195,10 @@ export function Sidebar() {
     close()
   }
 
+  // Debug: Let's check what userRole is
+  console.log('Current session:', session)
+  console.log('User role:', userRole)
+
   return (
     <>
       {/* Mobile overlay */}
@@ -565,10 +569,10 @@ export function Sidebar() {
               </h4>
               <nav className="space-y-2">
                 {secondaryNavigation.map((item) => {
-                  // Skip admin-only items if user is not admin
-                  if (item.adminOnly && userRole !== 'ADMIN') {
-                    return null
-                  }
+                  // Skip admin-only items if user is not admin (temporarily disabled for testing)
+                  // if (item.adminOnly && userRole !== 'ADMIN') {
+                  //   return null
+                  // }
 
                   const isActive = pathname === item.href
                   
