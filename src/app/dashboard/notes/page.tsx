@@ -1,4 +1,4 @@
-// src/app/dashboard/notes/page.tsx
+// src/app/dashboard/notes/page.tsx - UPDATED WITH AI TASK SUGGESTIONS
 'use client'
 
 import { useState, useMemo } from 'react'
@@ -35,6 +35,7 @@ import { useNotes, useNoteCategories, usePinNote, useArchiveNote, useDeleteNote 
 import { NoteEditor } from '@/components/notes/note-editor'
 import { NoteCard } from '@/components/notes/note-card'
 import { CreateNoteDialog } from '@/components/notes/create-note-dialog'
+import { EnhancedNoteEditor } from '@/components/notes/enhanced-note-editor'
 import {
   Search,
   Plus,
@@ -50,7 +51,9 @@ import {
   List,
   Clock,
   PinIcon,
-  Tag
+  Tag,
+  Brain,
+  Sparkles
 } from 'lucide-react'
 
 export default function NotesPage() {
@@ -62,6 +65,7 @@ export default function NotesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedNote, setSelectedNote] = useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [useEnhancedEditor, setUseEnhancedEditor] = useState(true) // NEW: Toggle for AI editor
 
   // Fetch data
   const { data: notesData, isLoading: notesLoading } = useNotes({
@@ -153,24 +157,31 @@ export default function NotesPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{getFilterTitle()}</h1>
             <p className="text-muted-foreground">
-              {filteredNotes.length} {filteredNotes.length === 1 ? 'note' : 'notes'}
-              {selectedCategory && selectedCategory !== 'all' && (
-                <span className="ml-1">
-                  in {categories.find(c => c.id === selectedCategory)?.name}
-                </span>
-              )}
+              {filteredNotes.length} {filteredNotes.length === 1 ? 'note' : 'notes'} found
             </p>
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
+          {/* AI Editor Toggle */}
+          <Button
+            variant={useEnhancedEditor ? "default" : "outline"}
+            size="sm"
+            onClick={() => setUseEnhancedEditor(!useEnhancedEditor)}
+            className="text-xs"
+          >
+            <Brain className="h-4 w-4 mr-1" />
+            {useEnhancedEditor ? 'AI Editor' : 'Basic Editor'}
+            {useEnhancedEditor && <Sparkles className="h-3 w-3 ml-1" />}
+          </Button>
+
           {/* View Mode Toggle */}
-          <div className="flex items-center bg-muted rounded-lg p-1">
+          <div className="flex rounded-md border">
             <Button
               variant={viewMode === 'grid' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('grid')}
-              className="h-8 w-8 p-0"
+              className="rounded-r-none"
             >
               <Grid className="h-4 w-4" />
             </Button>
@@ -178,13 +189,13 @@ export default function NotesPage() {
               variant={viewMode === 'list' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('list')}
-              className="h-8 w-8 p-0"
+              className="rounded-l-none"
             >
               <List className="h-4 w-4" />
             </Button>
           </div>
 
-          {/* Create Note Button */}
+          {/* Create Note */}
           <CreateNoteDialog
             open={showCreateDialog}
             onOpenChange={setShowCreateDialog}
@@ -198,98 +209,81 @@ export default function NotesPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <BookOpen className="h-4 w-4 text-blue-500" />
-              <div>
-                <p className="text-sm font-medium">Total Notes</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
+          <CardContent className="flex items-center justify-between p-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Notes</p>
+              <p className="text-2xl font-bold">{stats.total}</p>
             </div>
+            <BookOpen className="h-8 w-8 text-muted-foreground" />
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <PinIcon className="h-4 w-4 text-amber-500" />
-              <div>
-                <p className="text-sm font-medium">Pinned</p>
-                <p className="text-2xl font-bold">{stats.pinned}</p>
-              </div>
+          <CardContent className="flex items-center justify-between p-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Pinned</p>
+              <p className="text-2xl font-bold">{stats.pinned}</p>
             </div>
+            <Pin className="h-8 w-8 text-amber-600" />
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Clock className="h-4 w-4 text-green-500" />
-              <div>
-                <p className="text-sm font-medium">Recent</p>
-                <p className="text-2xl font-bold">{stats.recent}</p>
-              </div>
+          <CardContent className="flex items-center justify-between p-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Recent</p>
+              <p className="text-2xl font-bold">{stats.recent}</p>
             </div>
+            <Clock className="h-8 w-8 text-blue-600" />
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Archive className="h-4 w-4 text-gray-500" />
-              <div>
-                <p className="text-sm font-medium">Archived</p>
-                <p className="text-2xl font-bold">{stats.archived}</p>
-              </div>
+          <CardContent className="flex items-center justify-between p-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Archived</p>
+              <p className="text-2xl font-bold">{stats.archived}</p>
             </div>
+            <Archive className="h-8 w-8 text-gray-600" />
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Filters and Search */}
       <div className="flex flex-col sm:flex-row gap-4">
-        {/* Search */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search notes, content, or tags..."
+            placeholder="Search notes..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
           />
         </div>
 
-        {/* Category Filter */}
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="All Categories" />
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Filter by category" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
             {categories.map((category) => (
               <SelectItem key={category.id} value={category.id}>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2">
                   <div
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: category.color }}
                   />
-                  <span>{category.name}</span>
-                  {category._count && (
-                    <Badge variant="secondary" className="ml-auto text-xs">
-                      {category._count.notes}
-                    </Badge>
-                  )}
+                  {category.name}
                 </div>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
-
-      <Separator />
 
       {/* Notes Grid/List */}
       <div className="flex-1 overflow-hidden">
@@ -355,8 +349,17 @@ export default function NotesPage() {
         )}
       </div>
 
-      {/* Note Editor Dialog */}
-      {selectedNote && (
+      {/* Note Editor Dialog - AI Enhanced or Basic */}
+      {selectedNote && useEnhancedEditor && (
+        <EnhancedNoteEditor
+          noteId={selectedNote}
+          open={!!selectedNote}
+          onClose={() => setSelectedNote(null)}
+          categories={categories}
+        />
+      )}
+
+      {selectedNote && !useEnhancedEditor && (
         <NoteEditor
           noteId={selectedNote}
           open={!!selectedNote}
