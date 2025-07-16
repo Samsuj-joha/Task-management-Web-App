@@ -1,4 +1,4 @@
-// src/components/notes/note-card.tsx
+// src/components/notes/note-card.tsx - FIXED VERSION
 'use client'
 
 import { formatDistanceToNow } from 'date-fns'
@@ -75,6 +75,26 @@ export function NoteCard({
     return content.substring(0, maxLength) + '...'
   }
 
+  // Handle card click - opens edit dialog
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Prevent opening editor if clicking on action buttons
+    if (e.target !== e.currentTarget && 
+        (e.target as Element).closest('[data-dropdown-trigger]')) {
+      return
+    }
+    onEdit(note.id)
+  }
+
+  // Handle action click with proper event propagation
+  const handleActionClick = (
+    e: React.MouseEvent,
+    action: () => void
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
+    action()
+  }
+
   return (
     <Card 
       className={cn(
@@ -83,11 +103,11 @@ export function NoteCard({
         note.isArchived && 'opacity-60',
         viewMode === 'list' && 'hover:bg-muted/50'
       )}
-      onClick={() => onEdit(note.id)}
+      onClick={handleCardClick}
     >
       {/* Pin Indicator */}
       {note.isPinned && (
-        <div className="absolute top-2 right-2 z-10">
+        <div className="absolute top-2 right-2 z-10 pointer-events-none">
           <PinIcon className="h-4 w-4 text-amber-600 transform rotate-45" />
         </div>
       )}
@@ -139,56 +159,57 @@ export function NoteCard({
             </div>
           </div>
 
-          {/* Actions Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation()
-                onEdit(note.id)
-              }}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation()
-                onPin(note.id, note.isPinned)
-              }}>
-                <Pin className="h-4 w-4 mr-2" />
-                {note.isPinned ? 'Unpin' : 'Pin'}
-              </DropdownMenuItem>
+          {/* Actions Menu - Fixed positioning and event handling */}
+          <div className="flex-shrink-0" data-dropdown-trigger>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">Note actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem 
+                  onClick={(e) => handleActionClick(e, () => onEdit(note.id))}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem 
+                  onClick={(e) => handleActionClick(e, () => onPin(note.id, note.isPinned))}
+                >
+                  <Pin className="h-4 w-4 mr-2" />
+                  {note.isPinned ? 'Unpin' : 'Pin'}
+                </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation()
-                onArchive(note.id, note.isArchived)
-              }}>
-                <Archive className="h-4 w-4 mr-2" />
-                {note.isArchived ? 'Restore' : 'Archive'}
-              </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={(e) => handleActionClick(e, () => onArchive(note.id, note.isArchived))}
+                >
+                  <Archive className="h-4 w-4 mr-2" />
+                  {note.isArchived ? 'Restore' : 'Archive'}
+                </DropdownMenuItem>
 
-              <DropdownMenuSeparator />
-              
-              <DropdownMenuItem 
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete(note.id)
-                }}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuSeparator />
+                
+                <DropdownMenuItem 
+                  onClick={(e) => handleActionClick(e, () => onDelete(note.id))}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 focus:text-red-700 focus:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </CardHeader>
 
@@ -209,7 +230,7 @@ export function NoteCard({
         </p>
 
         {/* Tags */}
-        {note.tags.length > 0 && (
+        {note.tags && note.tags.length > 0 && (
           <div className="flex items-center gap-1 mt-3 flex-wrap">
             <Tag className="h-3 w-3 text-muted-foreground" />
             {note.tags.slice(0, viewMode === 'grid' ? 2 : 4).map((tag) => (
