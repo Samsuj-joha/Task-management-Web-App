@@ -1,4 +1,3 @@
-// prisma/schema.prisma - YOUR SCHEMA WITH MINIMAL ROLE CHANGES
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,22 +7,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// NextAuth.js Models
 model Account {
   id                String  @id @default(cuid())
   userId            String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -37,46 +34,37 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  
-  // Paragon Group specific fields
-  firstName     String?
-  lastName      String?
-  department    String?
-  employeeId    String?   @unique
-  role          UserRole  @default(USER)  // ⭐ CHANGED: Default to USER instead of EMPLOYEE
-  isActive      Boolean   @default(true)
-  
-  // Additional profile fields
-  phone         String?
-  location      String?
-  bio           String?   @db.Text
-  
-  // Team Management Fields (Added for team module)
-  skills        String[]  @default([])    // Array of skills
-  status        UserStatus @default(ACTIVE) // User status for team
-  joinedAt      DateTime? @default(now())  // When they joined the team
-  lastActive    DateTime? @default(now())  // Last activity timestamp
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Relations
-  accounts      Account[]
-  sessions      Session[]
-  tasks         Task[]
-  assignedTasks Task[]    @relation("TaskAssignee")
-  projects      Project[]
+  id             String          @id @default(cuid())
+  name           String?
+  email          String          @unique
+  emailVerified  DateTime?
+  image          String?
+  password       String?
+  firstName      String?
+  lastName       String?
+  department     String?
+  employeeId     String?         @unique
+  role           UserRole        @default(USER)
+  isActive       Boolean         @default(true)
+  phone          String?
+  location       String?
+  bio            String?
+  skills         String[]        @default([])
+  status         UserStatus      @default(ACTIVE)
+  joinedAt       DateTime?       @default(now())
+  lastActive     DateTime?       @default(now())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  accounts       Account[]
+  sessions       Session[]
+  comments       Comment[]
+  notes          Note[]
   projectMembers ProjectMember[]
-  comments      Comment[]
-  timeEntries   TimeEntry[] // Added for time tracking
-  notes         Note[]      // NEW: Notes relation
-  
+  projects       Project[]
+  assignedTasks  Task[]          @relation("TaskAssignee")
+  tasks          Task[]
+  timeEntries    TimeEntry[]
+
   @@map("users")
 }
 
@@ -88,59 +76,49 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// TaskFlow Models
 model Project {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   name        String
   description String?
-  status      ProjectStatus @default(ACTIVE)
-  priority    Priority @default(MEDIUM)
+  status      ProjectStatus   @default(ACTIVE)
+  priority    Priority        @default(MEDIUM)
   startDate   DateTime?
-  endDate     DateTime?  // This maps to 'deadline' in frontend
-  budget      Float?     // Added budget field
-  color       String?    // Added color field for UI
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
+  endDate     DateTime?
+  budget      Float?
+  color       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
   ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
-  tasks       Task[]
   members     ProjectMember[]
-  timeEntries TimeEntry[] // Added for time tracking
-  
+  owner       User            @relation(fields: [ownerId], references: [id])
+  tasks       Task[]
+  timeEntries TimeEntry[]
+
   @@map("projects")
 }
 
 model ProjectMember {
-  id        String @id @default(cuid())
+  id        String      @id @default(cuid())
   role      ProjectRole @default(MEMBER)
-  joinedAt  DateTime @default(now())
-  
-  // Relations
+  joinedAt  DateTime    @default(now())
   projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   userId    String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([projectId, userId])
   @@map("project_members")
 }
 
-// NEW: Lookup Tables for Dynamic Dropdowns
 model Module {
   id        String   @id @default(cuid())
   name      String   @unique
   isActive  Boolean  @default(true)
   sortOrder Int?     @default(0)
-  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  // Relations
   tasks     Task[]
-  
+
   @@map("modules")
 }
 
@@ -149,48 +127,37 @@ model Department {
   name      String   @unique
   isActive  Boolean  @default(true)
   sortOrder Int?     @default(0)
-  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  // Relations
   tasks     Task[]
-  
+
   @@map("departments")
 }
 
 model TaskType {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  isActive  Boolean  @default(true)
-  sortOrder Int?     @default(0)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  tasks     Task[]
+  id        String    @id @default(cuid())
+  name      String    @unique
+  isActive  Boolean   @default(true)
+  sortOrder Int?      @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   subTasks  SubTask[]
-  
+  tasks     Task[]
+
   @@map("task_types")
 }
 
 model SubTask {
-  id         String   @id @default(cuid())
-  name       String   @unique
-  isActive   Boolean  @default(true)
-  sortOrder  Int?     @default(0)
-  
-  // Optional: Link to specific task types
+  id         String    @id @default(cuid())
+  name       String    @unique
+  isActive   Boolean   @default(true)
+  sortOrder  Int?      @default(0)
   taskTypeId String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   taskType   TaskType? @relation(fields: [taskTypeId], references: [id])
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  
-  // Relations
   tasks      Task[]
-  
+
   @@map("sub_tasks")
 }
 
@@ -199,13 +166,10 @@ model ModifyOption {
   name      String   @unique
   isActive  Boolean  @default(true)
   sortOrder Int?     @default(0)
-  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  // Relations
   tasks     Task[]
-  
+
   @@map("modify_options")
 }
 
@@ -214,73 +178,51 @@ model Reference {
   name      String   @unique
   isActive  Boolean  @default(true)
   sortOrder Int?     @default(0)
-  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  // Relations
   tasks     Task[]
-  
+
   @@map("references")
 }
 
-// UPDATED: Task Model with Foreign Key Relations
 model Task {
-  id          String     @id @default(cuid())
-  
-  // Keep existing fields for backward compatibility
-  title       String
-  description String?
-  
-  // Add new fields from your form
-  name        String?    // Task name (will replace title eventually)
-  date        DateTime?  // Task creation/start date
-  
-  // CHANGED: Now using foreign key relations instead of strings
-  moduleId    String?    // Foreign key to Module
-  module      Module?    @relation(fields: [moduleId], references: [id])
-  
-  devDeptId   String?    // Foreign key to Department  
-  devDept     Department? @relation(fields: [devDeptId], references: [id])
-  
-  taskTypeId  String?    // Foreign key to TaskType
-  taskType    TaskType?  @relation(fields: [taskTypeId], references: [id])
-  
-  subTaskId   String?    // Foreign key to SubTask
-  subTask     SubTask?   @relation(fields: [subTaskId], references: [id])
-  
-  modifyId    String?    // Foreign key to ModifyOption
-  modify      ModifyOption? @relation(fields: [modifyId], references: [id])
-  
-  referenceId String?    // Foreign key to Reference
-  reference   Reference? @relation(fields: [referenceId], references: [id])
-  
-  // Keep other existing fields
-  trackingNo  String?    // Tracking number
-  solveDate   DateTime?  // Target solve date
-  sentBy      String?    // Task originator
-  comments    String?    // Task comments (will replace description eventually)
-  
-  // Existing fields
-  status      TaskStatus @default(TODO)
-  priority    Priority   @default(MEDIUM)
-  dueDate     DateTime?
-  
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  completedAt DateTime?
-  
-  // Relations
-  creatorId   String
-  creator     User       @relation(fields: [creatorId], references: [id])
-  assigneeId  String?
-  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  projectId   String?
-  project     Project?   @relation(fields: [projectId], references: [id])
-  tags        TaskTag[]
+  id           String        @id @default(cuid())
+  title        String
+  description  String?
+  name         String?
+  date         DateTime?
+  moduleId     String?
+  devDeptId    String?
+  taskTypeId   String?
+  subTaskId    String?
+  modifyId     String?
+  referenceId  String?
+  trackingNo   String?
+  solveDate    DateTime?
+  sentBy       String?
+  comments     String?
+  status       TaskStatus    @default(TODO)
+  priority     Priority      @default(MEDIUM)
+  dueDate      DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  completedAt  DateTime?
+  creatorId    String
+  assigneeId   String?
+  projectId    String?
   taskComments Comment[]
-  timeEntries TimeEntry[] // Added for time tracking
-  
+  tags         TaskTag[]
+  assignee     User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator      User          @relation(fields: [creatorId], references: [id])
+  devDept      Department?   @relation(fields: [devDeptId], references: [id])
+  modify       ModifyOption? @relation(fields: [modifyId], references: [id])
+  module       Module?       @relation(fields: [moduleId], references: [id])
+  project      Project?      @relation(fields: [projectId], references: [id])
+  reference    Reference?    @relation(fields: [referenceId], references: [id])
+  subTask      SubTask?      @relation(fields: [subTaskId], references: [id])
+  taskType     TaskType?     @relation(fields: [taskTypeId], references: [id])
+  timeEntries  TimeEntry[]
+
   @@map("tasks")
 }
 
@@ -288,24 +230,19 @@ model Tag {
   id        String    @id @default(cuid())
   name      String    @unique
   color     String    @default("#6B7280")
-  
   createdAt DateTime  @default(now())
-  
-  // Relations
   tasks     TaskTag[]
-  
+
   @@map("tags")
 }
 
 model TaskTag {
   id     String @id @default(cuid())
-  
-  // Relations
   taskId String
-  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   tagId  String
   tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
   @@unique([taskId, tagId])
   @@map("task_tags")
 }
@@ -313,104 +250,74 @@ model TaskTag {
 model Comment {
   id        String   @id @default(cuid())
   content   String
-  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  // Relations
   taskId    String
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   authorId  String
   author    User     @relation(fields: [authorId], references: [id])
-  
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
   @@map("comments")
 }
 
-// Time Tracking Model (UPDATED)
 model TimeEntry {
   id          String   @id @default(cuid())
-  description String?  // What was worked on
-  duration    Int      // Duration in minutes
-  startTime   DateTime // When work started
-  endTime     DateTime // When work ended
-  date        String   // Date of the work in YYYY-MM-DD format (for easier querying)
-  
-  // Optional categorization
-  category    String?  // e.g., "Development", "Testing", "Meeting"
-  billable    Boolean  @default(true) // Is this billable time?
-  
+  description String?
+  duration    Int
+  startTime   DateTime
+  endTime     DateTime
+  date        String
+  category    String?
+  billable    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
-  // Relations
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   taskId      String?
-  task        Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
   projectId   String?
-  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  
+  project     Project? @relation(fields: [projectId], references: [id])
+  task        Task?    @relation(fields: [taskId], references: [id])
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("time_entries")
 }
 
-// ===============================================
-// NEW: NOTES SYSTEM MODELS
-// ===============================================
-
-// Notes System Models
 model NoteCategory {
   id        String   @id @default(cuid())
   name      String   @unique
-  color     String   @default("#6B7280") // Color for category
-  icon      String?  @default("📝")      // Emoji or icon name
+  color     String   @default("#6B7280")
+  icon      String?  @default("📝")
   isActive  Boolean  @default(true)
   sortOrder Int?     @default(0)
-  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  // Relations
   notes     Note[]
-  
+
   @@map("note_categories")
 }
 
 model Note {
-  id          String   @id @default(cuid())
-  title       String
-  content     String   @db.Text
-  
-  // Organization
-  categoryId  String?
-  category    NoteCategory? @relation(fields: [categoryId], references: [id])
-  
-  // Status and Priority
-  isPinned    Boolean  @default(false)  // Pin important notes
-  isArchived  Boolean  @default(false)  // Archive old notes
-  priority    Priority @default(MEDIUM) // Reuse existing Priority enum
-  
-  // Metadata
-  tags        String[] @default([])     // Array of tags for easy filtering
-  
-  // Timestamps
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  lastViewedAt DateTime? @default(now()) // Track when note was last opened
-  
-  // Relations
-  authorId    String
-  author      User     @relation(fields: [authorId], references: [id])
-  
-  // Full-text search support (for PostgreSQL)
+  id           String        @id @default(cuid())
+  title        String
+  content      String
+  categoryId   String?
+  isPinned     Boolean       @default(false)
+  isArchived   Boolean       @default(false)
+  priority     Priority      @default(MEDIUM)
+  tags         String[]      @default([])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  lastViewedAt DateTime?     @default(now())
+  authorId     String
+  author       User          @relation(fields: [authorId], references: [id])
+  category     NoteCategory? @relation(fields: [categoryId], references: [id])
+
   @@index([title, content])
   @@map("notes")
 }
 
-// ⭐ UPDATED ENUMS - ONLY CHANGES HERE
 enum UserRole {
-  ADMIN      // Can see/edit all tasks, manage users
-              // Can manage team tasks (keeping for compatibility)
-  USER       // Can only see/edit own tasks (renamed from EMPLOYEE)
+  ADMIN
+  USER
 }
 
 enum UserStatus {
