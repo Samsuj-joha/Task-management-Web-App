@@ -1,3 +1,5 @@
+// prisma/schema.prisma - UPDATED WITH CHAT SYSTEM
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -53,8 +55,16 @@ model User {
   status         UserStatus      @default(ACTIVE)
   joinedAt       DateTime?       @default(now())
   lastActive     DateTime?       @default(now())
+  
+  // Chat-related fields for performance
+  isOnline       Boolean         @default(false)
+  lastSeen       DateTime?       @default(now())
+  socketId       String?         // For real-time connection tracking
+  
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+  
+  // Existing relations
   accounts       Account[]
   sessions       Session[]
   comments       Comment[]
@@ -64,7 +74,15 @@ model User {
   assignedTasks  Task[]          @relation("TaskAssignee")
   tasks          Task[]
   timeEntries    TimeEntry[]
+  
+  // New Chat relations
+  createdChatRooms    ChatRoom[]       @relation("ChatRoomCreator")
+  chatMemberships     ChatRoomMember[] @relation("ChatRoomMemberships")
+  sentMessages        ChatMessage[]    @relation("SentMessages")
+  messageReactions    MessageReaction[]
+  typingStatuses      TypingStatus[]
 
+  @@index([isOnline, lastSeen]) // Performance: Online users lookup
   @@map("users")
 }
 
@@ -93,6 +111,9 @@ model Project {
   owner       User            @relation(fields: [ownerId], references: [id])
   tasks       Task[]
   timeEntries TimeEntry[]
+  
+  // New Chat relation
+  chatRooms   ChatRoom[]      // Project-specific chat rooms
 
   @@map("projects")
 }
@@ -109,6 +130,153 @@ model ProjectMember {
   @@unique([projectId, userId])
   @@map("project_members")
 }
+
+// ===== CHAT SYSTEM MODELS (HIGH-PERFORMANCE) =====
+
+model ChatRoom {
+  id              String   @id @default(cuid())
+  name            String   @db.VarChar(100)
+  description     String?  @db.VarChar(500)
+  type            RoomType @default(GENERAL)
+  projectId       String?
+  isPrivate       Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  
+  // Performance optimization fields
+  lastMessageAt   DateTime? // Quick sorting without joins
+  messageCount    Int      @default(0) // Cached count
+  memberCount     Int      @default(0) // Cached count
+  
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  project         Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator         User     @relation("ChatRoomCreator", fields: [createdBy], references: [id])
+  members         ChatRoomMember[]
+  messages        ChatMessage[]
+
+  // High-performance indexes
+  @@index([type, isActive, lastMessageAt(sort: Desc)]) // Fast room listing
+  @@index([projectId, isActive]) // Project-specific rooms
+  @@index([createdBy]) // User's created rooms
+  @@index([isPrivate, isActive]) // Public/private filtering
+  @@map("chat_rooms")
+}
+
+model ChatRoomMember {
+  id           String   @id @default(cuid())
+  roomId       String
+  userId       String
+  role         MemberRole @default(MEMBER)
+  joinedAt     DateTime @default(now())
+  lastReadAt   DateTime @default(now()) // Performance: Read status tracking
+  unreadCount  Int      @default(0) // Performance: Cached unread count
+  isActive     Boolean  @default(true)
+  isMuted      Boolean  @default(false)
+  
+  // Notification preferences
+  notifyOnMention Boolean @default(true)
+  notifyOnAll     Boolean @default(true)
+
+  // Relations
+  room         ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user         User     @relation("ChatRoomMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Performance: Unique constraint + optimized indexes
+  @@unique([roomId, userId])
+  @@index([userId, isActive, lastReadAt]) // User's active rooms with read status
+  @@index([roomId, isActive]) // Room's active members
+  @@index([unreadCount]) // Quick unread queries
+  @@map("chat_room_members")
+}
+
+model ChatMessage {
+  id            String      @id @default(cuid())
+  content       String      @db.Text
+  type          MessageType @default(TEXT)
+  roomId        String
+  senderId      String
+  replyToId     String?
+  
+  // Performance and features
+  isEdited      Boolean     @default(false)
+  isDeleted     Boolean     @default(false)
+  editedAt      DateTime?
+  
+  // JSON metadata for performance (mentions, files, etc.)
+  metadata      Json?       // Store file info, mentions, reactions count
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  room          ChatRoom    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender        User        @relation("SentMessages", fields: [senderId], references: [id])
+  replyTo       ChatMessage? @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies       ChatMessage[] @relation("MessageReplies")
+  reactions     MessageReaction[]
+  attachments   MessageAttachment[]
+
+  // High-performance indexes for chat loading
+  @@index([roomId, createdAt(sort: Desc)]) // Fast message loading by room
+  @@index([senderId, createdAt]) // User's message history
+  @@index([replyToId]) // Thread replies
+  @@index([type, roomId]) // Filter by message type
+  @@map("chat_messages")
+}
+
+model MessageReaction {
+  id        String @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String @db.VarChar(10) // Optimize storage
+  createdAt DateTime @default(now())
+
+  // Relations
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Performance: Prevent duplicate reactions
+  @@unique([messageId, userId, emoji])
+  @@index([messageId]) // Fast reaction loading
+  @@map("message_reactions")
+}
+
+model MessageAttachment {
+  id        String @id @default(cuid())
+  messageId String
+  fileName  String
+  fileUrl   String
+  fileType  String @db.VarChar(50)
+  fileSize  Int    // in bytes
+  createdAt DateTime @default(now())
+
+  // Relations
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId]) // Fast attachment loading
+  @@map("message_attachments")
+}
+
+// Real-time typing indicators (separate table for performance)
+model TypingStatus {
+  id        String   @id @default(cuid())
+  roomId    String
+  userId    String
+  startedAt DateTime @default(now())
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Performance: Auto-cleanup old typing statuses
+  @@unique([roomId, userId])
+  @@index([roomId, startedAt]) // Clean up old typing statuses
+  @@map("typing_statuses")
+}
+
+// ===== EXISTING MODELS (UNCHANGED) =====
 
 model Module {
   id        String   @id @default(cuid())
@@ -315,6 +483,8 @@ model Note {
   @@map("notes")
 }
 
+// ===== ENUMS =====
+
 enum UserRole {
   ADMIN
   USER
@@ -352,4 +522,26 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+// New Chat Enums
+enum RoomType {
+  GENERAL     // Company-wide general chat
+  PROJECT     // Project-specific discussions
+  DIRECT      // Direct message between users
+  ANNOUNCEMENT // Admin announcements only
+}
+
+enum MessageType {
+  TEXT        // Regular text message
+  IMAGE       // Image attachment
+  FILE        // File attachment
+  SYSTEM      // System-generated message
+  TASK_UPDATE // Task status/assignment updates
+}
+
+enum MemberRole {
+  ADMIN       // Full room control
+  MODERATOR   // Can manage messages/members
+  MEMBER      // Regular participant
 }

@@ -1,6 +1,6 @@
 
 
-// // src/components/layout/header.tsx - ENHANCED VERSION
+// // src/components/layout/header.tsx - FIXED VERSION
 // 'use client'
 
 // import Link from 'next/link'
@@ -550,8 +550,8 @@
 //   // Show loading state
 //   if (status === 'loading') {
 //     return (
-//       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
-//         <div className="flex h-16 items-center justify-center px-4">
+//       <header className="fixed top-0 left-0 right-0 z-[9999] w-full h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
+//         <div className="flex h-full items-center justify-center px-4">
 //           <Loader2 className="h-6 w-6 animate-spin" />
 //         </div>
 //       </header>
@@ -561,8 +561,8 @@
 //   // Show sign in prompt if not authenticated
 //   if (!session) {
 //     return (
-//       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
-//         <div className="flex h-16 items-center justify-between px-4">
+//       <header className="fixed top-0 left-0 right-0 z-[9999] w-full h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
+//         <div className="flex h-full items-center justify-between px-4">
 //           <div className="flex items-center space-x-2">
 //             <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
 //               <span className="text-primary-foreground font-bold text-sm">TF</span>
@@ -584,8 +584,9 @@
 
 //   return (
 //     <>
-//       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
-//         <div className="flex h-16 items-center justify-between px-4">
+//       {/* FIXED HEADER - Changed from sticky to fixed */}
+//       <header className="fixed top-0 left-0 right-0 z-[9999] w-full h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
+//         <div className="flex h-full items-center justify-between px-4">
 //           {/* Left side - Mobile menu + Logo */}
 //           <div className="flex items-center space-x-4">
 //             <Button
@@ -985,7 +986,18 @@
 
 
 
-// src/components/layout/header.tsx - FIXED VERSION
+
+
+
+
+
+
+
+
+
+
+
+// src/components/layout/header.tsx - COMPLETE HEADER WITH CHAT ICON
 'use client'
 
 import Link from 'next/link'
@@ -1042,7 +1054,8 @@ import {
   FileText,
   Calendar,
   Users,
-  Building2
+  Building2,
+  MessageCircle // Added for chat
 } from 'lucide-react'
 
 // Define interfaces
@@ -1103,6 +1116,183 @@ interface SearchResult {
   subtitle?: string
   url: string
   icon: React.ReactNode
+}
+
+// Chat interfaces (temporary - will be moved to store later)
+interface ChatRoom {
+  id: string
+  name: string
+  type: string
+  unreadCount: number
+  memberCount: number
+  isPrivate: boolean
+  lastMessageAt?: Date
+}
+
+// Simple chat hook (temporary)
+function useChatData() {
+  const [rooms, setRooms] = useState<ChatRoom[]>([])
+  const [onlineUsers, setOnlineUsers] = useState<any[]>([])
+  const [isConnected, setIsConnected] = useState(false)
+
+  useEffect(() => {
+    // Simulate loading chat data
+    const loadChatData = async () => {
+      try {
+        // Simulate API call
+        setTimeout(() => {
+          setRooms([
+            {
+              id: '1',
+              name: 'General Discussion',
+              type: 'GENERAL',
+              unreadCount: 3,
+              memberCount: 12,
+              isPrivate: false,
+              lastMessageAt: new Date()
+            },
+            {
+              id: '2',
+              name: 'Announcements',
+              type: 'ANNOUNCEMENT',
+              unreadCount: 0,
+              memberCount: 12,
+              isPrivate: false,
+              lastMessageAt: new Date()
+            },
+            {
+              id: '3',
+              name: 'Project Alpha',
+              type: 'PROJECT',
+              unreadCount: 5,
+              memberCount: 6,
+              isPrivate: true,
+              lastMessageAt: new Date()
+            }
+          ])
+          setOnlineUsers([
+            { id: '1', name: 'John Doe' },
+            { id: '2', name: 'Jane Smith' },
+            { id: '3', name: 'Bob Wilson' }
+          ])
+          setIsConnected(true)
+        }, 1000)
+      } catch (error) {
+        console.error('Failed to load chat data:', error)
+      }
+    }
+
+    loadChatData()
+  }, [])
+
+  return { rooms, onlineUsers, isConnected }
+}
+
+// Chat Header Icon Component
+function ChatHeaderIcon() {
+  const { rooms, isConnected, onlineUsers } = useChatData()
+  
+  // Calculate total unread messages
+  const totalUnread = rooms.reduce((total, room) => total + (room.unreadCount || 0), 0)
+  const hasUnread = totalUnread > 0
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <div className="relative">
+          <Button variant="ghost" size="icon" className="relative">
+            <MessageCircle className={`h-5 w-5 ${hasUnread ? 'text-blue-600' : ''}`} />
+            
+            {/* Connection status */}
+            <div className={`absolute -top-1 -left-1 h-3 w-3 rounded-full border-2 border-background ${
+              isConnected ? 'bg-green-500' : 'bg-gray-400'
+            }`} />
+            
+            {/* Unread count */}
+            {hasUnread && (
+              <Badge 
+                variant="destructive" 
+                className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold"
+              >
+                {totalUnread > 99 ? '99+' : totalUnread}
+              </Badge>
+            )}
+          </Button>
+        </div>
+      </PopoverTrigger>
+      
+      <PopoverContent className="w-80 p-0 mr-4" align="end">
+        <div className="border-b p-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-5 w-5" />
+            <h3 className="font-semibold">Team Chat</h3>
+            <Badge variant="outline" className="text-xs">
+              {onlineUsers.length} online
+            </Badge>
+          </div>
+        </div>
+        
+        <div className="p-4">
+          {rooms.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="font-medium">Loading chat rooms...</p>
+              <div className="flex justify-center mt-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground mb-3">
+                Recent Rooms ({rooms.length})
+              </p>
+              {rooms.slice(0, 5).map((room) => (
+                <div
+                  key={room.id}
+                  className="flex items-center justify-between p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                  onClick={() => {
+                    // Navigate to chat page
+                    window.location.href = `/dashboard/chat?room=${room.id}`
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0">
+                      {room.type === 'GENERAL' && <MessageCircle className="h-4 w-4" />}
+                      {room.type === 'PROJECT' && <Users className="h-4 w-4" />}
+                      {room.type === 'ANNOUNCEMENT' && <Bell className="h-4 w-4" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm truncate">{room.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {room.memberCount} members
+                      </p>
+                    </div>
+                  </div>
+                  {room.unreadCount > 0 && (
+                    <Badge variant="destructive" className="text-xs">
+                      {room.unreadCount > 99 ? '99+' : room.unreadCount}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="border-t p-3">
+          <Button 
+            className="w-full" 
+            size="sm"
+            onClick={() => {
+              window.location.href = '/dashboard/chat'
+            }}
+          >
+            Open Full Chat
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 export function Header() {
@@ -1620,7 +1810,6 @@ export function Header() {
                   <Button variant="ghost" size="icon">
                     <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                     <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                    <span className="sr-only">Toggle theme</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -1638,6 +1827,9 @@ export function Header() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* CHAT ICON - NEW ADDITION */}
+              <ChatHeaderIcon />
 
               {/* Real-time Notifications */}
               <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
