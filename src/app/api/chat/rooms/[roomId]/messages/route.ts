@@ -1,144 +1,255 @@
-// src/app/api/chat/rooms/[roomId]/messages/route.ts - FULL DATABASE VERSION (WORKING)
+// src/app/api/chat/rooms/[roomId]/messages/route.ts - PRIVATE CHAT VERSION
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-// GET messages for a room
+// GET messages - ONLY participants can see their private chat
 export async function GET(
   request: Request,
   { params }: { params: { roomId: string } }
 ) {
   try {
-    console.log(`🔍 Messages API called for room: ${params.roomId}`)
+    console.log(`🔍 Loading PRIVATE messages for room: ${params.roomId}`)
     
-    // Step 1: Get session (optional for now)
-    let session;
-    try {
-      session = await getServerSession(authOptions)
-      console.log('✅ Auth check:', session?.user?.email || 'No session')
-    } catch (authError) {
-      console.log('⚠️ Auth error, continuing without session:', authError)
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ 
+        error: 'Authentication required',
+        messages: []
+      }, { status: 401 })
     }
 
-    // Step 2: Check if room exists OR create it if missing
-    let room;
-    try {
-      room = await prisma.chatRoom.findUnique({
-        where: { id: params.roomId },
-        select: {
-          id: true,
-          name: true,
-          isPrivate: true,
-          isActive: true
-        }
-      })
+    const currentUserId = session.user.id
+    console.log(`✅ User ${session.user.email} requesting messages`)
 
-      // If room doesn't exist, create a default one
-      if (!room) {
-        console.log(`❌ Room ${params.roomId} not found, creating default room`)
-        
-        // Get first user as creator
-        const firstUser = await prisma.user.findFirst({
-          where: { isActive: true },
-          select: { id: true }
-        })
-        
-        if (firstUser) {
-          room = await prisma.chatRoom.create({
-            data: {
-              id: params.roomId,
-              name: `Room ${params.roomId}`,
-              description: 'Auto-created room',
-              type: 'GENERAL',
-              isPrivate: false,
-              isActive: true,
-              createdBy: firstUser.id,
-              memberCount: 1,
-              messageCount: 0
-            },
+    try {
+      // 🔒 PRIVACY CHECK: Verify user is a participant in this room
+      const roomMembership = await prisma.chatRoomMember.findFirst({
+        where: {
+          roomId: params.roomId,
+          userId: currentUserId,
+          isActive: true
+        },
+        include: {
+          room: {
             select: {
               id: true,
               name: true,
-              isPrivate: true,
-              isActive: true
-            }
-          })
-          
-          console.log(`✅ Created room: ${room.name}`)
-        } else {
-          // No users exist, return test data
-          console.log('⚠️ No users found, returning test data')
-          return NextResponse.json({
-            messages: [
-              {
-                id: "test1",
-                content: "Welcome! This is a test message because no chat rooms exist yet.",
-                type: "SYSTEM",
-                createdAt: new Date().toISOString(),
-                senderId: "system",
-                sender: {
-                  id: "system",
-                  name: "System",
-                  email: "system@chat.com",
-                  isOnline: true
-                }
-              }
-            ],
-            total: 1,
-            roomId: params.roomId,
-            roomName: `Room ${params.roomId}`,
-            authenticated: !!session?.user?.id
-          })
-        }
-      }
-
-      console.log(`✅ Found/created room: ${room.name}`)
-    } catch (dbError) {
-      console.error('❌ Database error with room:', dbError)
-      // Return test data if database fails
-      return NextResponse.json({
-        messages: [
-          {
-            id: "error1",
-            content: "Database connection issue. Showing test data.",
-            type: "SYSTEM",
-            createdAt: new Date().toISOString(),
-            senderId: "system",
-            sender: {
-              id: "system",
-              name: "System",
-              email: "system@chat.com",
-              isOnline: true
+              type: true,
+              isPrivate: true
             }
           }
-        ],
-        total: 1,
-        roomId: params.roomId,
-        roomName: `Room ${params.roomId}`,
-        authenticated: !!session?.user?.id
+        }
       })
-    }
 
-    // Step 3: Load messages from database
-    let messages = [];
-    try {
-      const { searchParams } = new URL(request.url)
-      const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
+      if (!roomMembership) {
+        console.log(`❌ PRIVACY VIOLATION: User ${session.user.email} is NOT a member of room ${params.roomId}`)
+        return NextResponse.json({ 
+          error: 'Access denied - You are not a participant in this conversation',
+          messages: [],
+          isPrivacyViolation: true
+        }, { status: 403 })
+      }
 
-      messages = await prisma.chatMessage.findMany({
+      console.log(`✅ PRIVACY OK: User is authorized to see this conversation`)
+
+      // Load messages ONLY for authorized participants
+      const messages = await prisma.chatMessage.findMany({
         where: {
           roomId: params.roomId,
           isDeleted: false
         },
-        select: {
-          id: true,
-          content: true,
-          type: true,
-          createdAt: true,
-          updatedAt: true,
-          isEdited: true,
-          senderId: true,
+        include: {
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+              isOnline: true
+            }
+          },
+          replyTo: {
+            select: {
+              id: true,
+              content: true,
+              sender: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: { createdAt: 'asc' },
+        take: 50
+      })
+
+      // Update user's read status and reset unread count
+      await prisma.chatRoomMember.update({
+        where: {
+          roomId_userId: {
+            roomId: params.roomId,
+            userId: currentUserId
+          }
+        },
+        data: {
+          lastReadAt: new Date(),
+          unreadCount: 0
+        }
+      })
+
+      console.log(`✅ Loaded ${messages.length} PRIVATE messages for authorized user`)
+
+      const formattedMessages = messages.map(message => ({
+        id: message.id,
+        content: message.content,
+        type: message.type,
+        senderId: message.senderId,
+        createdAt: message.createdAt.toISOString(),
+        isEdited: message.isEdited,
+        sender: {
+          id: message.sender.id,
+          name: message.sender.name || 'Unknown User',
+          email: message.sender.email,
+          image: message.sender.image,
+          isOnline: message.sender.isOnline || false
+        },
+        replyTo: message.replyTo ? {
+          id: message.replyTo.id,
+          content: message.replyTo.content,
+          sender: {
+            name: message.replyTo.sender.name || 'Unknown User'
+          }
+        } : undefined
+      }))
+
+      return NextResponse.json({
+        messages: formattedMessages,
+        total: formattedMessages.length,
+        roomId: params.roomId,
+        roomName: roomMembership.room.name,
+        roomType: roomMembership.room.type,
+        isPrivate: roomMembership.room.isPrivate,
+        authenticated: true,
+        isParticipant: true
+      })
+
+    } catch (dbError) {
+      console.error('Database error:', dbError)
+      
+      if (dbError.message?.includes('does not exist') || dbError.code === 'P2021') {
+        // Return mock private messages for testing
+        console.log('⚠️ Using mock private data for testing')
+        
+        const mockMessages = [
+          {
+            id: '1',
+            content: 'Hey! How are you doing?',
+            type: 'TEXT',
+            senderId: currentUserId === 'user-1' ? 'user-2' : 'user-1',
+            createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+            isEdited: false,
+            sender: {
+              id: currentUserId === 'user-1' ? 'user-2' : 'user-1',
+              name: 'Other Person',
+              email: 'other@company.com',
+              isOnline: true
+            }
+          },
+          {
+            id: '2',
+            content: 'I\'m good! Working on the new features. How about you?',
+            type: 'TEXT',
+            senderId: currentUserId,
+            createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+            isEdited: false,
+            sender: {
+              id: currentUserId,
+              name: session.user.name || 'You',
+              email: session.user.email || '',
+              isOnline: true
+            }
+          }
+        ]
+
+        return NextResponse.json({
+          messages: mockMessages,
+          total: mockMessages.length,
+          roomId: params.roomId,
+          isMockData: true,
+          isPrivate: true,
+          message: 'Private conversation - only participants can see this'
+        })
+      }
+
+      throw dbError
+    }
+
+  } catch (error) {
+    console.error(`❌ Error loading private messages:`, error)
+    return NextResponse.json(
+      { 
+        error: 'Failed to load messages',
+        details: error.message,
+        messages: []
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// POST - Send message to PRIVATE conversation
+export async function POST(
+  request: Request,
+  { params }: { params: { roomId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const currentUserId = session.user.id
+    const body = await request.json()
+    const { content, type = 'TEXT' } = body
+
+    if (!content?.trim()) {
+      return NextResponse.json({ error: 'Message content is required' }, { status: 400 })
+    }
+
+    try {
+      // 🔒 PRIVACY CHECK: Verify user can send to this room
+      const roomMembership = await prisma.chatRoomMember.findFirst({
+        where: {
+          roomId: params.roomId,
+          userId: currentUserId,
+          isActive: true
+        }
+      })
+
+      if (!roomMembership) {
+        console.log(`❌ PRIVACY VIOLATION: User ${session.user.email} cannot send to room ${params.roomId}`)
+        return NextResponse.json({ 
+          error: 'Access denied - You cannot send messages to this conversation'
+        }, { status: 403 })
+      }
+
+      // Create message in PRIVATE conversation
+      const message = await prisma.chatMessage.create({
+        data: {
+          content: content.trim(),
+          type,
+          roomId: params.roomId,
+          senderId: currentUserId,
+          isEdited: false,
+          isDeleted: false
+        },
+        include: {
           sender: {
             select: {
               id: true,
@@ -148,257 +259,69 @@ export async function GET(
               isOnline: true
             }
           }
-        },
-        orderBy: { createdAt: 'asc' },
-        take: limit
+        }
       })
 
-      console.log(`📨 Found ${messages.length} messages for room ${params.roomId}`)
+      // 🔔 DYNAMIC NOTIFICATIONS: Update unread counts for OTHER participants only
+      await prisma.chatRoomMember.updateMany({
+        where: {
+          roomId: params.roomId,
+          userId: { not: currentUserId }, // Only other participants
+          isActive: true
+        },
+        data: {
+          unreadCount: { increment: 1 }
+        }
+      })
 
-      // If no messages exist, create a welcome message
-      if (messages.length === 0 && room) {
-        console.log('📝 No messages found, creating welcome message')
-        
-        const firstUser = await prisma.user.findFirst({
-          where: { isActive: true },
-          select: { id: true, name: true, email: true }
-        })
-        
-        if (firstUser) {
-          const welcomeMessage = await prisma.chatMessage.create({
-            data: {
-              content: `Welcome to ${room.name}! 🎉 This is the beginning of your conversation.`,
-              type: 'SYSTEM',
-              roomId: params.roomId,
-              senderId: firstUser.id
-            },
-            select: {
-              id: true,
-              content: true,
-              type: true,
-              createdAt: true,
-              updatedAt: true,
-              isEdited: true,
-              senderId: true,
-              sender: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  image: true,
-                  isOnline: true
-                }
-              }
-            }
-          })
-          
-          messages = [welcomeMessage]
-          
-          // Update room message count
-          await prisma.chatRoom.update({
-            where: { id: params.roomId },
-            data: { 
-              messageCount: 1,
-              lastMessageAt: new Date()
-            }
-          })
+      // Update room's last message timestamp
+      await prisma.chatRoom.update({
+        where: { id: params.roomId },
+        data: {
+          lastMessageAt: message.createdAt,
+          messageCount: { increment: 1 }
+        }
+      })
+
+      console.log(`✅ PRIVATE message sent successfully to room ${params.roomId}`)
+
+      const formattedMessage = {
+        id: message.id,
+        content: message.content,
+        type: message.type,
+        senderId: message.senderId,
+        createdAt: message.createdAt.toISOString(),
+        isEdited: message.isEdited,
+        sender: {
+          id: message.sender.id,
+          name: message.sender.name || 'Unknown User',
+          email: message.sender.email,
+          image: message.sender.image,
+          isOnline: message.sender.isOnline || false
         }
       }
 
-      // Update last read if user is authenticated
-      if (session?.user?.id) {
-        try {
-          // Check if user is a member, if not add them
-          const membership = await prisma.chatRoomMember.findUnique({
-            where: {
-              roomId_userId: {
-                roomId: params.roomId,
-                userId: session.user.id
-              }
-            }
-          })
-          
-          if (!membership) {
-            // Add user as member
-            await prisma.chatRoomMember.create({
-              data: {
-                roomId: params.roomId,
-                userId: session.user.id,
-                role: 'MEMBER',
-                isActive: true,
-                unreadCount: 0
-              }
-            })
-            
-            // Update room member count
-            await prisma.chatRoom.update({
-              where: { id: params.roomId },
-              data: { memberCount: { increment: 1 } }
-            })
-          } else {
-            // Update read status
-            await prisma.chatRoomMember.update({
-              where: {
-                roomId_userId: {
-                  roomId: params.roomId,
-                  userId: session.user.id
-                }
-              },
-              data: {
-                lastReadAt: new Date(),
-                unreadCount: 0
-              }
-            })
-          }
-        } catch (updateError) {
-          console.log('⚠️ Could not update read status:', updateError)
-        }
-      }
+      return NextResponse.json({ 
+        message: formattedMessage,
+        success: true,
+        isPrivate: true
+      }, { status: 201 })
 
     } catch (dbError) {
-      console.error('❌ Database error loading messages:', dbError)
-      // Return empty messages if database fails
-      messages = []
+      if (dbError.message?.includes('does not exist') || dbError.code === 'P2021') {
+        return NextResponse.json({
+          error: 'Chat system not initialized',
+          needsMigration: true
+        }, { status: 503 })
+      }
+      throw dbError
     }
-
-    return NextResponse.json({
-      messages,
-      total: messages.length,
-      roomId: params.roomId,
-      roomName: room.name,
-      authenticated: !!session?.user?.id
-    })
 
   } catch (error) {
-    console.error(`❌ Get messages error for room ${params.roomId}:`, error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to fetch messages',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
-  }
-}
-
-// POST - Send new message
-export async function POST(
-  request: Request,
-  { params }: { params: { roomId: string } }
-) {
-  try {
-    console.log(`💬 Send message API called for room: ${params.roomId}`)
-    
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Authentication required to send messages' }, { status: 401 })
-    }
-
-    const body = await request.json()
-    const { content, type = 'TEXT' } = body
-
-    // Validation
-    if (!content?.trim()) {
-      return NextResponse.json({ error: 'Message content is required' }, { status: 400 })
-    }
-
-    if (content.length > 4000) {
-      return NextResponse.json({ error: 'Message too long (max 4000 characters)' }, { status: 400 })
-    }
-
-    console.log(`✅ Sending message from ${session.user.email}: "${content.substring(0, 50)}..."`)
-
-    // Check room exists, create if it doesn't
-    let room = await prisma.chatRoom.findUnique({
-      where: { id: params.roomId },
-      select: { id: true, isActive: true, isPrivate: true }
-    })
-
-    if (!room) {
-      // Create room if it doesn't exist
-      room = await prisma.chatRoom.create({
-        data: {
-          id: params.roomId,
-          name: `Room ${params.roomId}`,
-          type: 'GENERAL',
-          isPrivate: false,
-          isActive: true,
-          createdBy: session.user.id,
-          memberCount: 1,
-          messageCount: 0
-        },
-        select: { id: true, isActive: true, isPrivate: true }
-      })
-      
-      // Add user as member
-      await prisma.chatRoomMember.create({
-        data: {
-          roomId: params.roomId,
-          userId: session.user.id,
-          role: 'ADMIN',
-          isActive: true
-        }
-      })
-    }
-
-    // Create the message
-    const message = await prisma.chatMessage.create({
-      data: {
-        content: content.trim(),
-        type,
-        roomId: params.roomId,
-        senderId: session.user.id
-      },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-            isOnline: true
-          }
-        }
-      }
-    })
-
-    // Update room stats
-    await prisma.chatRoom.update({
-      where: { id: params.roomId },
-      data: {
-        lastMessageAt: new Date(),
-        messageCount: { increment: 1 }
-      }
-    })
-
-    // Update unread counts for other members
-    await prisma.chatRoomMember.updateMany({
-      where: {
-        roomId: params.roomId,
-        userId: { not: session.user.id },
-        isActive: true
-      },
-      data: {
-        unreadCount: { increment: 1 }
-      }
-    })
-
-    console.log(`✅ Message sent successfully by ${session.user.email}`)
-
+    console.error(`❌ Send private message error:`, error)
     return NextResponse.json({ 
-      message,
-      success: true
-    }, { status: 201 })
-
-  } catch (error) {
-    console.error(`❌ Send message error for room ${params.roomId}:`, error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to send message',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
+      error: 'Failed to send message',
+      details: error.message
+    }, { status: 500 })
   }
 }

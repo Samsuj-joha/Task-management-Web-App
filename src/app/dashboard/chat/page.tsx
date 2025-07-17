@@ -1,4 +1,4 @@
-// src/app/dashboard/chat/page.tsx - COMPLETE FIXED VERSION
+// src/app/dashboard/chat/page.tsx - FACEBOOK STYLE CHAT
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -14,9 +14,6 @@ import {
   MessageCircle,
   Send,
   Users,
-  Bell,
-  Settings,
-  Plus,
   Search,
   MoreVertical,
   Phone,
@@ -24,235 +21,327 @@ import {
   Info,
   Smile,
   Paperclip,
-  Hash,
-  Lock,
-  Loader2
+  Loader2,
+  ArrowLeft,
+  Trash2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // Interfaces
-interface ChatRoom {
+interface AppUser {
   id: string
   name: string
-  type: 'GENERAL' | 'PROJECT' | 'DIRECT' | 'ANNOUNCEMENT'
-  isPrivate: boolean
-  memberCount: number
-  messageCount: number
-  unreadCount: number
-  lastMessageAt?: Date
-  project?: {
-    id: string
-    name: string
-    color?: string
-  }
+  email: string
+  image?: string
+  isOnline: boolean
+  lastSeen?: string
+  department?: string
+  role: string
 }
 
 interface ChatMessage {
   id: string
   content: string
-  type: 'TEXT' | 'IMAGE' | 'FILE' | 'SYSTEM'
   senderId: string
-  createdAt: Date
-  isEdited: boolean
+  createdAt: string
   sender: {
     id: string
     name: string
-    email: string
-    isOnline: boolean
-  }
-  replyTo?: {
-    id: string
-    content: string
-    sender: { name: string }
+    image?: string
   }
 }
 
-interface OnlineUser {
+interface PrivateChat {
   id: string
-  name: string
-  email: string
-  isOnline: boolean
-  status: 'ACTIVE' | 'AWAY' | 'BUSY'
+  otherUser: AppUser
+  unreadCount: number
+  lastMessage?: string
+  lastMessageAt?: string
 }
 
-// Chat Sidebar Component
-function ChatSidebar({ 
-  rooms, 
-  onlineUsers, 
-  selectedRoom, 
-  onRoomSelect, 
-  isLoading,
-  isSidebarOpen,
-  onCloseSidebar 
+// Facebook Style Sidebar Component
+function FacebookChatSidebar({ 
+  allUsers, 
+  onlineUsers,
+  privateChatId,
+  onGroupChatSelect,
+  onPrivateChatSelect,
+  onDeleteDatabase,
+  isLoading
 }: {
-  rooms: ChatRoom[]
-  onlineUsers: OnlineUser[]
-  selectedRoom: string | null
-  onRoomSelect: (roomId: string) => void
+  allUsers: AppUser[]
+  onlineUsers: AppUser[]
+  privateChatId: string | null
+  onGroupChatSelect: () => void
+  onPrivateChatSelect: (userId: string) => void
+  onDeleteDatabase: () => void
   isLoading: boolean
-  isSidebarOpen: boolean
-  onCloseSidebar: () => void
 }) {
-  const getRoomIcon = (room: ChatRoom) => {
-    switch (room.type) {
-      case 'GENERAL': return <Hash className="h-4 w-4" />
-      case 'PROJECT': return <Users className="h-4 w-4" />
-      case 'DIRECT': return <MessageCircle className="h-4 w-4" />
-      case 'ANNOUNCEMENT': return <Bell className="h-4 w-4" />
-      default: return <MessageCircle className="h-4 w-4" />
-    }
-  }
+  const [searchQuery, setSearchQuery] = useState('')
+  const { data: session } = useSession()
+  
+  const filteredUsers = allUsers.filter(user => 
+    user.id !== session?.user?.id &&
+    user.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
-  const getUserInitials = (name: string) => {
+  const onlineUsersFiltered = onlineUsers.filter(user => 
+    user.id !== session?.user?.id &&
+    user.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const offlineUsersFiltered = filteredUsers.filter(user => !user.isOnline)
+
+  const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   }
 
-  const getStatusColor = (status: OnlineUser['status']) => {
-    switch (status) {
-      case 'ACTIVE': return 'bg-green-500'
-      case 'AWAY': return 'bg-yellow-500'
-      case 'BUSY': return 'bg-red-500'
-      default: return 'bg-gray-500'
+  const getLastSeenText = (user: AppUser) => {
+    if (user.isOnline) return 'Active now'
+    if (!user.lastSeen) return 'Offline'
+    
+    try {
+      const lastSeen = new Date(user.lastSeen)
+      const now = new Date()
+      const diffMinutes = Math.floor((now.getTime() - lastSeen.getTime()) / (1000 * 60))
+      
+      if (diffMinutes < 1) return 'Just now'
+      if (diffMinutes < 60) return `Active ${diffMinutes}m ago`
+      if (diffMinutes < 1440) return `Active ${Math.floor(diffMinutes / 60)}h ago`
+      return `Active ${Math.floor(diffMinutes / 1440)}d ago`
+    } catch {
+      return 'Offline'
     }
   }
 
   return (
-    <div className={cn(
-      "w-80 border-r bg-background flex flex-col transition-transform duration-200",
-      isSidebarOpen ? "translate-x-0" : "-translate-x-full",
-      "md:translate-x-0 absolute md:relative z-40 md:z-auto h-full"
-    )}>
-      {/* Sidebar Header */}
+    <div className="w-80 border-r bg-background flex flex-col h-full">
+      {/* Header */}
       <div className="p-4 border-b">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <MessageCircle className="h-5 w-5" />
-            Team Chat
+          <h2 className="text-lg font-semibold flex items-center gap-2" style={{ color: 'oklch(0.205 0 0)' }}>
+            <MessageCircle className="h-5 w-5" style={{ color: 'oklch(0.205 0 0)' }} />
+            TaskFlow Chat
           </h2>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              {onlineUsers.length} online
-            </Badge>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Settings className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 md:hidden"
-              onClick={onCloseSidebar}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </div>
+          <Badge variant="outline" className="text-xs border" style={{ 
+            backgroundColor: 'oklch(0.95 0.02 150)', 
+            color: 'oklch(0.205 0 0)',
+            borderColor: 'oklch(0.205 0 0)'
+          }}>
+            {onlineUsersFiltered.length} online
+          </Badge>
         </div>
         
-        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Search conversations..." 
-            className="pl-10 h-9"
+            placeholder="Search people..." 
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
       </div>
 
-      {/* Rooms List */}
       <ScrollArea className="flex-1">
         <div className="p-2">
+          {/* GROUP DISCUSSION - Always at top */}
+          <div className="mb-4">
+            <div className="px-2 py-1 mb-2">
+              <span className="text-sm font-medium" style={{ color: 'oklch(0.205 0 0)' }}>🌍 Group Chat</span>
+            </div>
+            
+            <div
+              className={cn(
+                "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border",
+                !privateChatId 
+                  ? "text-white border shadow-lg transform scale-[1.02]" 
+                  : "hover:border border-opacity-30"
+              )}
+              style={{
+                backgroundColor: !privateChatId ? 'oklch(0.205 0 0)' : 'transparent',
+                borderColor: 'oklch(0.205 0 0)',
+                '--hover-bg': 'oklch(0.95 0.02 0)'
+              }}
+              onClick={onGroupChatSelect}
+            >
+              <div className={cn(
+                "h-12 w-12 rounded-full flex items-center justify-center shadow-md",
+                !privateChatId 
+                  ? "bg-white text-black" 
+                  : "text-white"
+              )}
+              style={{
+                backgroundColor: !privateChatId ? 'white' : 'oklch(0.205 0 0)'
+              }}>
+                <Users className="h-6 w-6" />
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <p className={cn(
+                  "font-semibold text-base",
+                  !privateChatId ? "text-white" : ""
+                )}
+                style={{ color: !privateChatId ? 'white' : 'oklch(0.205 0 0)' }}>
+                  Group Discussion
+                </p>
+                <p className={cn(
+                  "text-sm",
+                  !privateChatId ? "" : "text-gray-500"
+                )}
+                style={{ color: !privateChatId ? 'rgba(255,255,255,0.8)' : 'oklch(0.5 0 0)' }}>
+                  {allUsers.length} members • TaskFlow team chat
+                </p>
+              </div>
+              
+              {!privateChatId && (
+                <div className="h-3 w-3 bg-white rounded-full animate-pulse" />
+              )}
+            </div>
+          </div>
+
+          <Separator className="my-4" />
+
           {isLoading ? (
             <div className="space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 p-2">
-                  <div className="w-8 h-8 bg-muted rounded animate-pulse" />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-3">
+                  <div className="w-10 h-10 bg-muted rounded-full animate-pulse" />
                   <div className="flex-1">
-                    <div className="w-24 h-4 bg-muted rounded animate-pulse mb-1" />
-                    <div className="w-16 h-3 bg-muted rounded animate-pulse" />
+                    <div className="w-32 h-4 bg-muted rounded animate-pulse mb-1" />
+                    <div className="w-20 h-3 bg-muted rounded animate-pulse" />
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             <>
-              <div className="mb-4">
-                <div className="flex items-center justify-between px-2 py-1 mb-2">
-                  <span className="text-sm font-medium text-muted-foreground">Channels ({rooms.length})</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                {rooms.map((room) => (
-                  <div
-                    key={room.id}
-                    className={cn(
-                      "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors",
-                      selectedRoom === room.id 
-                        ? "bg-primary/10 text-primary" 
-                        : "hover:bg-muted/50"
-                    )}
-                    onClick={() => onRoomSelect(room.id)}
-                  >
-                    <div className="flex-shrink-0">
-                      {getRoomIcon(room)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm truncate">
-                          {room.name}
-                        </span>
-                        {room.unreadCount > 0 && (
-                          <Badge variant="destructive" className="text-xs h-5">
-                            {room.unreadCount > 99 ? '99+' : room.unreadCount}
+              {/* ONLINE USERS */}
+              {onlineUsersFiltered.length > 0 && (
+                <div className="mb-4">
+                  <div className="px-2 py-1 mb-2">
+                    <span className="text-sm font-medium text-green-600">
+                      Active Now — {onlineUsersFiltered.length}
+                    </span>
+                  </div>
+                  
+                  {onlineUsersFiltered.map((user) => (
+                    <div
+                      key={user.id}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border",
+                        privateChatId === user.id 
+                          ? "bg-gradient-to-r from-green-500 to-green-600 text-white border-green-600 shadow-lg transform scale-[1.02]" 
+                          : "hover:bg-green-50 border-green-200 hover:border-green-300"
+                      )}
+                      onClick={() => onPrivateChatSelect(user.id)}
+                    >
+                      <div className="relative">
+                        <Avatar className="h-12 w-12 border-2 border-white shadow-md">
+                          {user.image ? (
+                            <AvatarImage src={user.image} alt={user.name} />
+                          ) : null}
+                          <AvatarFallback className={cn(
+                            privateChatId === user.id 
+                              ? "bg-white text-green-600" 
+                              : "bg-green-100 text-green-700"
+                          )}>
+                            {getInitials(user.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {/* Green online dot with pulse animation */}
+                        <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white shadow-sm">
+                          <div className="h-full w-full bg-green-400 rounded-full animate-ping opacity-75" />
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className={cn(
+                            "font-semibold text-base truncate",
+                            privateChatId === user.id ? "text-white" : "text-gray-800"
+                          )}>
+                            {user.name}
+                          </p>
+                          <Badge variant="outline" className={cn(
+                            "text-xs border",
+                            privateChatId === user.id 
+                              ? "bg-white text-green-600 border-white" 
+                              : "bg-green-50 text-green-700 border-green-200"
+                          )}>
+                            {user.role}
                           </Badge>
-                        )}
+                        </div>
+                        <p className={cn(
+                          "text-sm font-medium",
+                          privateChatId === user.id ? "text-green-100" : "text-green-600"
+                        )}>
+                          {getLastSeenText(user)}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Users className="h-3 w-3" />
-                        <span>{room.memberCount} members</span>
-                        {room.isPrivate && <Lock className="h-3 w-3 ml-1" />}
-                        {room.project && (
-                          <span className="ml-1">• {room.project.name}</span>
-                        )}
-                      </div>
+                      
+                      {privateChatId === user.id && (
+                        <div className="h-3 w-3 bg-white rounded-full animate-pulse" />
+                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Online Users */}
-              <div className="mb-4">
-                <div className="px-2 py-1 mb-2">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Online — {onlineUsers.length}
-                  </span>
+                  ))}
                 </div>
-                
-                {onlineUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                  >
-                    <div className="relative">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-xs">
-                          {getUserInitials(user.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className={cn(
-                        "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background",
-                        getStatusColor(user.status)
-                      )} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{user.name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {user.status.toLowerCase()}
-                      </p>
-                    </div>
+              )}
+
+              {/* OFFLINE USERS */}
+              {offlineUsersFiltered.length > 0 && (
+                <div>
+                  <div className="px-2 py-1 mb-2">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Offline — {offlineUsersFiltered.length}
+                    </span>
                   </div>
-                ))}
-              </div>
+                  
+                  {offlineUsersFiltered.map((user) => (
+                    <div
+                      key={user.id}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors opacity-75",
+                        privateChatId === user.id ? "bg-gray-50 border border-gray-200" : "hover:bg-muted/50"
+                      )}
+                      onClick={() => onPrivateChatSelect(user.id)}
+                    >
+                      <div className="relative">
+                        <Avatar className="h-10 w-10">
+                          {user.image ? (
+                            <AvatarImage src={user.image} alt={user.name} />
+                          ) : null}
+                          <AvatarFallback className="bg-gray-100 text-gray-600">
+                            {getInitials(user.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {/* Gray offline dot */}
+                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-gray-400 rounded-full border-2 border-background" />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium text-sm truncate">{user.name}</p>
+                          <Badge variant="outline" className="text-xs">
+                            {user.role}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {getLastSeenText(user)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {filteredUsers.length === 0 && !isLoading && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="font-medium">No users found</p>
+                  <p className="text-sm">Try adjusting your search</p>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -261,254 +350,195 @@ function ChatSidebar({
   )
 }
 
-// Chat Main Area Component
-function ChatMainArea({ 
-  room, 
+// Chat Area Component
+function ChatArea({ 
+  chatType,
+  otherUser,
   messages, 
-  isConnected, 
-  isLoading, 
   onSendMessage,
-  onToggleSidebar 
+  onToggleSidebar,
+  isLoading
 }: {
-  room: ChatRoom | null
+  chatType: 'group' | 'private'
+  otherUser?: AppUser
   messages: ChatMessage[]
-  isConnected: boolean
-  isLoading: boolean
   onSendMessage: (content: string) => void
   onToggleSidebar: () => void
+  isLoading: boolean
 }) {
   const [newMessage, setNewMessage] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const { data: session } = useSession()
 
-  // Auto scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Focus input when room changes
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [room])
-
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault()
-    
     if (!newMessage.trim()) return
-
+    
     onSendMessage(newMessage.trim())
     setNewMessage('')
   }
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
-    })
-  }
-
-  const formatDate = (date: Date) => {
-    const today = new Date()
-    const messageDate = new Date(date)
-    
-    if (messageDate.toDateString() === today.toDateString()) {
-      return 'Today'
-    } else if (messageDate.toDateString() === new Date(today.getTime() - 24 * 60 * 60 * 1000).toDateString()) {
-      return 'Yesterday'
-    } else {
-      return messageDate.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
+  const formatTime = (timeString: string) => {
+    try {
+      const date = new Date(timeString)
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
       })
+    } catch {
+      return ''
     }
   }
 
-  const getUserInitials = (name: string) => {
+  const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   }
 
-  const getRoomIcon = (room: ChatRoom) => {
-    switch (room.type) {
-      case 'GENERAL': return <Hash className="h-4 w-4" />
-      case 'PROJECT': return <Users className="h-4 w-4" />
-      case 'DIRECT': return <MessageCircle className="h-4 w-4" />
-      case 'ANNOUNCEMENT': return <Bell className="h-4 w-4" />
-      default: return <MessageCircle className="h-4 w-4" />
-    }
+  const getChatTitle = () => {
+    if (chatType === 'group') return 'Group Discussion'
+    return otherUser?.name || 'Private Chat'
   }
 
-  if (!room) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <MessageCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-semibold mb-2">Welcome to Team Chat</h3>
-          <p className="text-muted-foreground mb-4">
-            Select a channel from the sidebar to start chatting with your team.
-          </p>
-          <Button onClick={onToggleSidebar}>
-            Browse Channels
-          </Button>
-        </div>
-      </div>
-    )
+  const getChatSubtitle = () => {
+    if (chatType === 'group') return 'TaskFlow team chat'
+    if (!otherUser) return 'Private conversation'
+    return otherUser.isOnline ? 'Active now' : 'Offline'
   }
 
   return (
     <div className="flex-1 flex flex-col">
       {/* Chat Header */}
-      <div className="p-4 border-b bg-background/95 backdrop-blur">
+      <div className="p-4 border-b bg-gradient-to-r from-white to-gray-50 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={onToggleSidebar}
-            >
-              <MessageCircle className="h-5 w-5" />
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={onToggleSidebar}>
+              <ArrowLeft className="h-5 w-5" />
             </Button>
             
-            <div className="flex items-center gap-2">
-              {getRoomIcon(room)}
-              <div>
-                <h3 className="font-semibold">{room.name}</h3>
-                <p className="text-xs text-muted-foreground">
-                  {room.memberCount} members • {room.messageCount} messages
-                  {room.project && (
-                    <span className="ml-2">• {room.project.name}</span>
+            <div className="flex items-center gap-4">
+              {chatType === 'group' ? (
+                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-lg">
+                  <Users className="h-6 w-6" />
+                </div>
+              ) : otherUser ? (
+                <div className="relative">
+                  <Avatar className="h-12 w-12 border-2 border-white shadow-lg">
+                    {otherUser.image ? (
+                      <AvatarImage src={otherUser.image} alt={otherUser.name} />
+                    ) : null}
+                    <AvatarFallback className="bg-gradient-to-br from-gray-400 to-gray-600 text-white">
+                      {getInitials(otherUser.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  {otherUser.isOnline && (
+                    <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white shadow-sm">
+                      <div className="h-full w-full bg-green-400 rounded-full animate-ping opacity-75" />
+                    </div>
                   )}
+                </div>
+              ) : null}
+              
+              <div>
+                <h3 className="font-bold text-lg text-gray-800">{getChatTitle()}</h3>
+                <p className={cn(
+                  "text-sm font-medium",
+                  chatType === 'group' ? "text-blue-600" : 
+                  otherUser?.isOnline ? "text-green-600" : "text-gray-500"
+                )}>
+                  {getChatSubtitle()}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Phone className="h-4 w-4" />
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="text-blue-600 hover:bg-blue-50">
+              <Phone className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Video className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="text-blue-600 hover:bg-blue-50">
+              <Video className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Info className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="text-blue-600 hover:bg-blue-50">
+              <Info className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <MoreVertical className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="text-gray-600 hover:bg-gray-50">
+              <MoreVertical className="h-5 w-5" />
             </Button>
           </div>
-        </div>
-
-        {/* Connection Status */}
-        <div className="flex items-center gap-2 mt-2">
-          <div className={cn(
-            "h-2 w-2 rounded-full",
-            isConnected ? "bg-green-500" : "bg-red-500"
-          )} />
-          <span className="text-xs text-muted-foreground">
-            {isConnected ? "Connected" : "Disconnected"}
-          </span>
         </div>
       </div>
 
       {/* Messages Area */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-6 bg-gradient-to-b from-gray-50 to-white">
         {isLoading ? (
           <div className="flex items-center justify-center h-32">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <span className="ml-2 text-sm text-muted-foreground">Loading messages...</span>
+            <Loader2 className="h-8 w-8 animate-spin mr-3 text-blue-500" />
+            <span className="text-base text-gray-600">Loading messages...</span>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {messages.map((message, index) => {
+              const isOwnMessage = message.senderId === session?.user?.id
               const previousMessage = messages[index - 1]
-              const showDate = !previousMessage || 
-                formatDate(message.createdAt) !== formatDate(previousMessage.createdAt)
-              const showSender = !previousMessage || 
-                previousMessage.senderId !== message.senderId ||
-                (message.createdAt.getTime() - previousMessage.createdAt.getTime()) > 300000 // 5 minutes
-              
+              const showSender = !previousMessage || previousMessage.senderId !== message.senderId
+
               return (
                 <div key={message.id}>
-                  {/* Date separator */}
-                  {showDate && (
-                    <div className="flex items-center justify-center my-4">
-                      <div className="bg-muted px-3 py-1 rounded-full">
-                        <span className="text-xs font-medium text-muted-foreground">
-                          {formatDate(message.createdAt)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Message */}
                   <div className={cn(
-                    "flex gap-3",
-                    message.senderId === 'current-user' ? "flex-row-reverse" : "flex-row"
+                    "flex gap-4",
+                    isOwnMessage ? "flex-row-reverse" : "flex-row"
                   )}>
-                    {/* Avatar (only show for first message in group) */}
-                    {showSender && message.senderId !== 'current-user' ? (
-                      <Avatar className="h-8 w-8 mt-1">
-                        <AvatarFallback className="text-xs">
-                          {getUserInitials(message.sender.name)}
+                    {showSender && !isOwnMessage && (
+                      <Avatar className="h-10 w-10 mt-1 border-2 border-white shadow-md">
+                        {message.sender.image ? (
+                          <AvatarImage src={message.sender.image} alt={message.sender.name} />
+                        ) : null}
+                        <AvatarFallback className="bg-gradient-to-br from-blue-400 to-blue-600 text-white text-sm">
+                          {getInitials(message.sender.name)}
                         </AvatarFallback>
                       </Avatar>
-                    ) : message.senderId !== 'current-user' ? (
-                      <div className="w-8" />
-                    ) : null}
+                    )}
 
                     <div className={cn(
-                      "flex flex-col max-w-[70%]",
-                      message.senderId === 'current-user' ? "items-end" : "items-start"
+                      "flex flex-col max-w-[75%]",
+                      isOwnMessage ? "items-end" : "items-start"
                     )}>
-                      {/* Sender name and time (only for first message in group) */}
                       {showSender && (
                         <div className={cn(
-                          "flex items-center gap-2 mb-1",
-                          message.senderId === 'current-user' ? "flex-row-reverse" : "flex-row"
+                          "flex items-center gap-3 mb-2",
+                          isOwnMessage ? "flex-row-reverse" : "flex-row"
                         )}>
-                          <span className="text-sm font-medium">
-                            {message.senderId === 'current-user' ? 'You' : message.sender.name}
+                          <span className="text-sm font-semibold text-gray-700">
+                            {isOwnMessage ? 'You' : message.sender.name}
                           </span>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-gray-500">
                             {formatTime(message.createdAt)}
                           </span>
-                          {message.isEdited && (
-                            <span className="text-xs text-muted-foreground">(edited)</span>
-                          )}
                         </div>
                       )}
 
-                      {/* Reply indicator */}
-                      {message.replyTo && (
-                        <div className="mb-2 p-2 bg-muted/50 rounded border-l-2 border-primary text-sm">
-                          <p className="text-xs text-muted-foreground mb-1">
-                            Replying to {message.replyTo.sender.name}
-                          </p>
-                          <p className="text-muted-foreground">
-                            {message.replyTo.content.substring(0, 100)}...
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Message content */}
                       <div className={cn(
-                        "px-3 py-2 rounded-lg break-words",
-                        message.type === 'SYSTEM' 
-                          ? "bg-muted/50 text-muted-foreground italic text-center"
-                          : message.senderId === 'current-user'
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
-                      )}>
+                        "px-4 py-3 rounded-2xl shadow-sm max-w-full break-words",
+                        isOwnMessage
+                          ? "text-white"
+                          : "bg-white border border-gray-200"
+                      )}
+                      style={{
+                        backgroundColor: isOwnMessage ? 'oklch(0.205 0 0)' : 'white'
+                      }}>
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">
                           {message.content}
                         </p>
                       </div>
-
-                      {/* Time for subsequent messages */}
-                      {!showSender && message.type !== 'SYSTEM' && (
-                        <span className="text-xs text-muted-foreground mt-1 px-1">
+                      
+                      {/* Show time for non-sender messages */}
+                      {!showSender && (
+                        <span className="text-xs text-gray-400 mt-1 px-2">
                           {formatTime(message.createdAt)}
                         </span>
                       )}
@@ -523,184 +553,277 @@ function ChatMainArea({
       </ScrollArea>
 
       {/* Message Input */}
-      <div className="p-4 border-t">
-        <form onSubmit={handleSendMessage} className="flex gap-2">
+      <div className="p-4 border-t bg-white shadow-lg">
+        <form onSubmit={handleSendMessage} className="flex gap-3">
           <div className="flex-1 relative">
             <Input
-              ref={inputRef}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={`Message ${room.name}...`}
-              className="pr-20"
-              disabled={!isConnected}
+              placeholder={`Message ${getChatTitle()}...`}
+              className="pr-20 rounded-full border-2 border-gray-200 focus:border-blue-400 py-3 text-base"
             />
-            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-              >
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex gap-2">
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-blue-600">
                 <Paperclip className="h-4 w-4" />
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-              >
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-blue-600">
                 <Smile className="h-4 w-4" />
               </Button>
             </div>
           </div>
           <Button 
             type="submit" 
-            disabled={!newMessage.trim() || !isConnected}
-            className="px-4"
+            disabled={!newMessage.trim()}
+            className="rounded-full px-6 py-3 text-white font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: 'oklch(0.205 0 0)',
+              borderColor: 'oklch(0.205 0 0)'
+            }}
           >
-            <Send className="h-4 w-4" />
+            <Send className="h-5 w-5" />
           </Button>
         </form>
-        
-        {/* Typing indicator placeholder */}
-        <div className="mt-2 min-h-[1rem]">
-          {/* Will show typing indicators here later */}
-        </div>
       </div>
     </div>
   )
 }
 
-// Main Chat Page Component
+// Main Facebook Style Chat Page - FIXED EXPORT
 export default function ChatPage() {
   const { data: session } = useSession()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const initialRoomId = searchParams.get('room')
   
-  const [selectedRoom, setSelectedRoom] = useState<string | null>(initialRoomId)
-  const [rooms, setRooms] = useState<ChatRoom[]>([])
+  const [chatType, setChatType] = useState<'group' | 'private'>('group')
+  const [privateChatUserId, setPrivateChatUserId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
-  const [isConnected, setIsConnected] = useState(false)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  const [isLoadingRooms, setIsLoadingRooms] = useState(true)
+  const [allUsers, setAllUsers] = useState<AppUser[]>([])
+  const [onlineUsers, setOnlineUsers] = useState<AppUser[]>([])
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
-  // Load rooms from database
+  // Load users
   useEffect(() => {
     if (session?.user) {
-      loadRooms()
+      loadUsers()
     }
   }, [session])
 
-  // Load messages when room changes
+  // Load messages when chat changes
   useEffect(() => {
-    if (selectedRoom) {
-      loadMessages(selectedRoom)
+    if (chatType === 'group') {
+      loadGroupMessages()
+    } else if (privateChatUserId) {
+      loadPrivateMessages(privateChatUserId)
     }
-  }, [selectedRoom])
+  }, [chatType, privateChatUserId])
 
-  const loadRooms = async () => {
+  const loadUsers = async () => {
     try {
-      setIsLoadingRooms(true)
-      const response = await fetch('/api/chat/rooms')
+      setIsLoadingUsers(true)
+      const response = await fetch('/api/team')
       if (response.ok) {
         const data = await response.json()
-        setRooms(data.rooms || [])
-        console.log('✅ Loaded rooms:', data.rooms?.length || 0)
-      } else {
-        console.error('Failed to load rooms:', response.statusText)
+        const users = data.teamMembers || []
+        
+        const transformedUsers = users.map((user: any) => ({
+          id: user.id,
+          name: user.displayName || user.name,
+          email: user.email,
+          image: user.image,
+          isOnline: user.status === 'ACTIVE' && user.lastActive && 
+                   new Date().getTime() - new Date(user.lastActive).getTime() < 5 * 60 * 1000,
+          lastSeen: user.lastActive,
+          department: user.department,
+          role: user.role
+        }))
+        
+        setAllUsers(transformedUsers)
+        setOnlineUsers(transformedUsers.filter((user: AppUser) => user.isOnline))
+        
+        console.log(`✅ Loaded ${transformedUsers.length} users`)
       }
     } catch (error) {
-      console.error('Failed to load rooms:', error)
+      console.error('Failed to load users:', error)
     } finally {
-      setIsLoadingRooms(false)
+      setIsLoadingUsers(false)
     }
   }
 
-  const loadMessages = async (roomId: string) => {
+  const loadGroupMessages = async () => {
     try {
       setIsLoadingMessages(true)
-      const response = await fetch(`/api/chat/rooms/${roomId}/messages`)
+      const response = await fetch('/api/chat/group/messages')
       if (response.ok) {
         const data = await response.json()
         setMessages(data.messages || [])
-        console.log('✅ Loaded messages:', data.messages?.length || 0)
+        console.log(`✅ Loaded ${data.messages?.length || 0} group messages`)
       } else {
-        console.error('Failed to load messages:', response.statusText)
+        // Fallback to mock data
+        setMessages([
+          {
+            id: '1',
+            content: 'Welcome to TaskFlow group chat! 👋',
+            senderId: 'system',
+            createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+            sender: { id: 'system', name: 'System' }
+          }
+        ])
       }
     } catch (error) {
-      console.error('Failed to load messages:', error)
+      console.error('Failed to load group messages:', error)
+      setMessages([])
     } finally {
       setIsLoadingMessages(false)
     }
   }
 
-  const handleSendMessage = async (content: string) => {
-    if (!selectedRoom || !content.trim()) return
-
+  const loadPrivateMessages = async (userId: string) => {
     try {
-      const response = await fetch(`/api/chat/rooms/${selectedRoom}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, type: 'TEXT' })
-      })
-
+      setIsLoadingMessages(true)
+      const response = await fetch(`/api/chat/private/messages?userId=${userId}`)
       if (response.ok) {
-        // Reload messages to show the new one
-        loadMessages(selectedRoom)
+        const data = await response.json()
+        setMessages(data.messages || [])
+        console.log(`✅ Loaded ${data.messages?.length || 0} private messages`)
       } else {
-        console.error('Failed to send message:', response.statusText)
+        // Fallback to mock data
+        const otherUser = allUsers.find(u => u.id === userId)
+        setMessages([
+          {
+            id: 'p1',
+            content: 'Hi! How are you doing?',
+            senderId: userId,
+            createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+            sender: { id: userId, name: otherUser?.name || 'User' }
+          }
+        ])
       }
     } catch (error) {
-      console.error('Failed to send message:', error)
+      console.error('Failed to load private messages:', error)
+      setMessages([])
+    } finally {
+      setIsLoadingMessages(false)
     }
   }
 
-  const handleRoomSelect = (roomId: string) => {
-    setSelectedRoom(roomId)
-    router.push(`/dashboard/chat?room=${roomId}`)
-    // Close sidebar on mobile after selection
-    if (window.innerWidth < 768) {
-      setIsSidebarOpen(false)
+  const handleGroupChatSelect = () => {
+    setChatType('group')
+    setPrivateChatUserId(null)
+    router.push('/dashboard/chat')
+  }
+
+  const handlePrivateChatSelect = (userId: string) => {
+    setChatType('private')
+    setPrivateChatUserId(userId)
+    router.push(`/dashboard/chat?user=${userId}`)
+    setIsSidebarOpen(false)
+  }
+
+  const handleSendMessage = async (content: string) => {
+    if (!content.trim()) return
+
+    // Optimistic update - add message immediately
+    const tempMessage: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      content: content.trim(),
+      senderId: session?.user?.id || 'me',
+      createdAt: new Date().toISOString(),
+      sender: {
+        id: session?.user?.id || 'me',
+        name: session?.user?.name || 'You',
+        image: session?.user?.image
+      }
+    }
+
+    setMessages(prev => [...prev, tempMessage])
+
+    try {
+      if (chatType === 'group') {
+        // Send to group chat API
+        const response = await fetch('/api/chat/group/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: content.trim() })
+        })
+
+        if (response.ok) {
+          console.log('✅ Group message sent successfully')
+          // Remove temp message and reload real messages
+          setMessages(prev => prev.filter(msg => !msg.id.startsWith('temp-')))
+          // Wait a bit then reload to get the real message
+          setTimeout(() => {
+            loadGroupMessages()
+          }, 500)
+        } else {
+          throw new Error('Failed to send group message')
+        }
+      } else if (privateChatUserId) {
+        // Send to private chat API
+        const response = await fetch('/api/chat/private/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            content: content.trim(),
+            recipientId: privateChatUserId
+          })
+        })
+
+        if (response.ok) {
+          console.log('✅ Private message sent successfully')
+          // Remove temp message and reload real messages
+          setMessages(prev => prev.filter(msg => !msg.id.startsWith('temp-')))
+          // Wait a bit then reload to get the real message
+          setTimeout(() => {
+            loadPrivateMessages(privateChatUserId)
+          }, 500)
+        } else {
+          throw new Error('Failed to send private message')
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to send message:', error)
+      // Remove failed temp message
+      setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id))
+      
+      // Show error message
+      alert('Failed to send message. Please try again.')
     }
   }
 
-  const currentRoom = rooms.find(room => room.id === selectedRoom)
+  const handleDeleteDatabase = () => {
+    // Removed - no longer needed
+  }
 
-  // Simulate connection (will be real WebSocket later)
-  useEffect(() => {
-    setIsConnected(true)
-    // Mock some online users
-    setOnlineUsers([
-      { id: '1', name: 'John Doe', email: 'john@company.com', isOnline: true, status: 'ACTIVE' },
-      { id: '2', name: 'Sarah Wilson', email: 'sarah@company.com', isOnline: true, status: 'ACTIVE' },
-      { id: '3', name: 'Mike Johnson', email: 'mike@company.com', isOnline: true, status: 'AWAY' }
-    ])
-  }, [])
+  const currentOtherUser = privateChatUserId ? allUsers.find(u => u.id === privateChatUserId) : undefined
 
   return (
     <div className="flex h-[calc(100vh-4rem)] bg-background">
-      {/* Sidebar */}
-      <ChatSidebar
-        rooms={rooms}
-        onlineUsers={onlineUsers}
-        selectedRoom={selectedRoom}
-        onRoomSelect={handleRoomSelect}
-        isLoading={isLoadingRooms}
-        isSidebarOpen={isSidebarOpen}
-        onCloseSidebar={() => setIsSidebarOpen(false)}
-      />
+      {/* Facebook Style Sidebar */}
+      <div className={cn(
+        "transition-transform duration-200 md:translate-x-0",
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <FacebookChatSidebar
+          allUsers={allUsers}
+          onlineUsers={onlineUsers}
+          privateChatId={privateChatUserId}
+          onGroupChatSelect={handleGroupChatSelect}
+          onPrivateChatSelect={handlePrivateChatSelect}
+          onDeleteDatabase={() => {}} // Empty function since we removed the button
+          isLoading={isLoadingUsers}
+        />
+      </div>
 
-      {/* Main Chat Area */}
-      <ChatMainArea
-        room={currentRoom || null}
+      {/* Chat Area */}
+      <ChatArea
+        chatType={chatType}
+        otherUser={currentOtherUser}
         messages={messages}
-        isConnected={isConnected}
-        isLoading={isLoadingMessages}
         onSendMessage={handleSendMessage}
         onToggleSidebar={() => setIsSidebarOpen(true)}
+        isLoading={isLoadingMessages}
       />
 
       {/* Mobile overlay */}
