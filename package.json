@@ -2,12 +2,14 @@
   "name": "taskflow",
   "version": "0.1.0",
   "private": true,
+  
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
+    "dev": "node server/socket-server.js",
+    "dev:debug": "DEBUG=socket.io* node server/socket-server.js",
+    "test:socket": "node test-server.js",
+    "kill:port": "npx kill-port 3000"
+  }
+,
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
     "@next-auth/prisma-adapter": "^1.0.7",
@@ -32,7 +34,6 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/socket.io": "^3.0.1",
-    "@types/socket.io-client": "^1.4.36",
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -61,6 +62,7 @@
     "@types/node": "^20.19.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
+    "@types/socket.io-client": "^1.4.36",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
     "prisma": "^6.10.1",
