@@ -1,10 +1,10 @@
-// src/app/error.tsx
+// src/app/error.tsx - FIXED VERSION
 'use client'
 
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
 
 export default function Error({
   error,
@@ -17,6 +17,10 @@ export default function Error({
     // Log the error to an error reporting service
     console.error(error)
   }, [error])
+
+  const handleGoToDashboard = () => {
+    window.location.href = '/dashboard'
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
@@ -41,7 +45,7 @@ export default function Error({
         </CardContent>
         <CardFooter className="flex justify-center space-x-2">
           <Button
-            onClick={() => reset()}
+            onClick={reset}
             variant="default"
             className="flex items-center space-x-2"
           >
@@ -49,10 +53,12 @@ export default function Error({
             <span>Try again</span>
           </Button>
           <Button
-            onClick={() => window.location.href = '/dashboard'}
+            onClick={handleGoToDashboard}
             variant="outline"
+            className="flex items-center space-x-2"
           >
-            Go to Dashboard
+            <Home className="h-4 w-4" />
+            <span>Go to Dashboard</span>
           </Button>
         </CardFooter>
       </Card>
