@@ -1,4 +1,4 @@
-// src/app/dashboard/notes/page.tsx - UPDATED WITH AI TASK SUGGESTIONS
+// src/app/dashboard/notes/page.tsx - Updated to use Enhanced Create Dialog
 'use client'
 
 import { useState, useMemo } from 'react'
@@ -17,24 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 import { useNotes, useNoteCategories, usePinNote, useArchiveNote, useDeleteNote } from '@/hooks/use-notes'
 import { NoteEditor } from '@/components/notes/note-editor'
 import { NoteCard } from '@/components/notes/note-card'
-import { CreateNoteDialog } from '@/components/notes/create-note-dialog'
+import { CreateNoteDialog } from '@/components/notes/create-note-dialog' // Enhanced version
 import { EnhancedNoteEditor } from '@/components/notes/enhanced-note-editor'
 import {
   Search,
@@ -42,18 +28,14 @@ import {
   StickyNote,
   Pin,
   Archive,
-  MoreVertical,
-  Edit,
-  Trash2,
   BookOpen,
-  Filter,
   Grid,
   List,
   Clock,
   PinIcon,
-  Tag,
   Brain,
-  Sparkles
+  Sparkles,
+  Zap
 } from 'lucide-react'
 
 export default function NotesPage() {
@@ -65,7 +47,7 @@ export default function NotesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedNote, setSelectedNote] = useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [useEnhancedEditor, setUseEnhancedEditor] = useState(true) // NEW: Toggle for AI editor
+  const [useEnhancedEditor, setUseEnhancedEditor] = useState(true)
 
   // Fetch data
   const { data: notesData, isLoading: notesLoading } = useNotes({
@@ -195,23 +177,25 @@ export default function NotesPage() {
             </Button>
           </div>
 
-          {/* Create Note */}
-          <CreateNoteDialog
-            open={showCreateDialog}
-            onOpenChange={setShowCreateDialog}
-            categories={categories}
+          {/* Enhanced Create Note Button */}
+          <Button 
+            size="lg" 
+            className="font-medium"
+            onClick={() => {
+              console.log('🎯 Create note button clicked')
+              setShowCreateDialog(true)
+            }}
           >
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              New Note
-            </Button>
-          </CreateNoteDialog>
+            <Zap className="h-4 w-4 mr-2" />
+            New Note with AI
+            <Sparkles className="h-3 w-3 ml-1" />
+          </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Enhanced Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardContent className="flex items-center justify-between p-4">
             <div>
               <p className="text-sm text-muted-foreground">Total Notes</p>
@@ -221,7 +205,7 @@ export default function NotesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardContent className="flex items-center justify-between p-4">
             <div>
               <p className="text-sm text-muted-foreground">Pinned</p>
@@ -231,7 +215,7 @@ export default function NotesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardContent className="flex items-center justify-between p-4">
             <div>
               <p className="text-sm text-muted-foreground">Recent</p>
@@ -241,7 +225,7 @@ export default function NotesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardContent className="flex items-center justify-between p-4">
             <div>
               <p className="text-sm text-muted-foreground">Archived</p>
@@ -310,22 +294,23 @@ export default function NotesPage() {
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <StickyNote className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No notes found</h3>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground mb-6">
               {search || (selectedCategory && selectedCategory !== 'all')
                 ? 'Try adjusting your filters or search terms'
-                : 'Create your first note to get started'
+                : 'Create your first note with AI-powered task suggestions'
               }
             </p>
-            <CreateNoteDialog
-              open={showCreateDialog}
-              onOpenChange={setShowCreateDialog}
-              categories={categories}
+            <Button 
+              size="lg"
+              onClick={() => {
+                console.log('🎯 Create first note button clicked')
+                setShowCreateDialog(true)
+              }}
             >
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Note
-              </Button>
-            </CreateNoteDialog>
+              <Zap className="h-4 w-4 mr-2" />
+              Create Your First Note
+              <Sparkles className="h-3 w-3 ml-1" />
+            </Button>
           </div>
         ) : (
           <div className={cn(
@@ -348,6 +333,13 @@ export default function NotesPage() {
           </div>
         )}
       </div>
+
+      {/* Create Note Dialog */}
+      <CreateNoteDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        categories={categories}
+      />
 
       {/* Note Editor Dialog - AI Enhanced or Basic */}
       {selectedNote && useEnhancedEditor && (

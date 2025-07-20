@@ -1,4 +1,4 @@
-// src/lib/ai/task-suggestion-engine.ts - FREE AI-POWERED TASK SUGGESTIONS
+// src/lib/ai/task-suggestion-engine.ts - IMPROVED VERSION
 'use client'
 
 import { useLookups } from '@/hooks/use-lookups'
@@ -20,85 +20,127 @@ export interface TaskSuggestion {
   category: 'bug_fix' | 'feature' | 'testing' | 'documentation' | 'meeting' | 'research' | 'deployment' | 'maintenance'
 }
 
-// AI Keywords and patterns for different categories
+// Enhanced AI Keywords and patterns
 const AI_PATTERNS = {
   bug_fix: {
-    keywords: ['bug', 'error', 'issue', 'problem', 'fix', 'broken', 'not working', 'crash', 'fail'],
-    phrases: ['doesn\'t work', 'not functioning', 'throws error', 'page crashes'],
+    keywords: ['bug', 'error', 'issue', 'problem', 'fix', 'broken', 'not working', 'crash', 'fail', 'glitch', 'malfunction'],
+    phrases: ['doesn\'t work', 'not functioning', 'throws error', 'page crashes', 'system down', 'broken feature'],
     priority: 'HIGH',
     type: 'Bug Fix',
-    estimatedTime: '2-4 hours'
+    estimatedTime: '2-4 hours',
+    confidenceWeight: 3
   },
   feature: {
-    keywords: ['implement', 'add', 'create', 'build', 'develop', 'feature', 'functionality', 'new'],
-    phrases: ['need to add', 'should implement', 'create new', 'build feature'],
+    keywords: ['implement', 'add', 'create', 'build', 'develop', 'feature', 'functionality', 'new', 'enhancement', 'improve'],
+    phrases: ['need to add', 'should implement', 'create new', 'build feature', 'add functionality', 'develop component'],
     priority: 'MEDIUM',
     type: 'Feature Development',
-    estimatedTime: '1-2 days'
+    estimatedTime: '1-2 days',
+    confidenceWeight: 2
   },
   testing: {
-    keywords: ['test', 'testing', 'unit test', 'integration', 'qa', 'quality', 'verify'],
-    phrases: ['write tests', 'test coverage', 'verify functionality'],
+    keywords: ['test', 'testing', 'unit test', 'integration', 'qa', 'quality', 'verify', 'validate', 'check'],
+    phrases: ['write tests', 'test coverage', 'verify functionality', 'quality assurance', 'test cases'],
     priority: 'MEDIUM',
     type: 'Testing',
-    estimatedTime: '3-5 hours'
+    estimatedTime: '3-5 hours',
+    confidenceWeight: 2
   },
   documentation: {
-    keywords: ['document', 'readme', 'docs', 'guide', 'manual', 'instruction'],
-    phrases: ['write documentation', 'update readme', 'create guide'],
+    keywords: ['document', 'readme', 'docs', 'guide', 'manual', 'instruction', 'wiki', 'help'],
+    phrases: ['write documentation', 'update readme', 'create guide', 'document process', 'user manual'],
     priority: 'LOW',
     type: 'Documentation',
-    estimatedTime: '2-3 hours'
+    estimatedTime: '2-3 hours',
+    confidenceWeight: 1
   },
   meeting: {
-    keywords: ['meeting', 'discuss', 'call', 'sync', 'standup', 'review', 'presentation'],
-    phrases: ['schedule meeting', 'team sync', 'review session'],
+    keywords: ['meeting', 'discuss', 'call', 'sync', 'standup', 'review', 'presentation', 'demo'],
+    phrases: ['schedule meeting', 'team sync', 'review session', 'stakeholder meeting', 'demo session'],
     priority: 'MEDIUM',
     type: 'Meeting',
-    estimatedTime: '1 hour'
+    estimatedTime: '1 hour',
+    confidenceWeight: 2
   },
   research: {
-    keywords: ['research', 'investigate', 'analyze', 'study', 'explore', 'evaluation'],
-    phrases: ['need to research', 'investigate issue', 'analyze requirements'],
+    keywords: ['research', 'investigate', 'analyze', 'study', 'explore', 'evaluation', 'compare', 'assess'],
+    phrases: ['need to research', 'investigate issue', 'analyze requirements', 'study options', 'explore solutions'],
     priority: 'LOW',
     type: 'Research',
-    estimatedTime: '4-6 hours'
+    estimatedTime: '4-6 hours',
+    confidenceWeight: 1
   },
   deployment: {
-    keywords: ['deploy', 'release', 'publish', 'production', 'live', 'launch'],
-    phrases: ['deploy to production', 'release version', 'go live'],
+    keywords: ['deploy', 'release', 'publish', 'production', 'live', 'launch', 'ship', 'go-live'],
+    phrases: ['deploy to production', 'release version', 'go live', 'publish update', 'launch feature'],
     priority: 'HIGH',
     type: 'Deployment',
-    estimatedTime: '2-3 hours'
+    estimatedTime: '2-3 hours',
+    confidenceWeight: 3
   },
   maintenance: {
-    keywords: ['update', 'upgrade', 'maintain', 'optimize', 'refactor', 'cleanup'],
-    phrases: ['code cleanup', 'performance optimization', 'dependency update'],
+    keywords: ['update', 'upgrade', 'maintain', 'optimize', 'refactor', 'cleanup', 'improve', 'enhance'],
+    phrases: ['code cleanup', 'performance optimization', 'dependency update', 'refactor code', 'system maintenance'],
     priority: 'LOW',
     type: 'Maintenance',
-    estimatedTime: '3-4 hours'
+    estimatedTime: '3-4 hours',
+    confidenceWeight: 1
   }
 }
 
-// Technology-specific mappings
-const TECH_MODULE_MAPPING = {
-  'react': 'Frontend Development',
-  'nextjs': 'Frontend Development', 
-  'frontend': 'Frontend Development',
-  'ui': 'UI/UX Design',
-  'backend': 'Backend Development',
-  'api': 'API Development',
-  'database': 'Database Management',
-  'sql': 'Database Management',
-  'auth': 'Backend Development',
-  'deployment': 'DevOps & Deployment',
-  'docker': 'DevOps & Deployment',
-  'mobile': 'Mobile Development',
-  'ios': 'Mobile Development',
-  'android': 'Mobile Development'
+// Smart task title templates
+const SMART_TITLES = {
+  bug_fix: [
+    'Fix {subject} issue',
+    'Resolve {subject} problem',
+    'Debug {subject} error',
+    'Repair {subject} malfunction'
+  ],
+  feature: [
+    'Implement {subject} feature',
+    'Add {subject} functionality',
+    'Create {subject} component',
+    'Build {subject} system'
+  ],
+  testing: [
+    'Test {subject} functionality',
+    'Write tests for {subject}',
+    'Validate {subject} behavior',
+    'QA {subject} feature'
+  ],
+  documentation: [
+    'Document {subject} process',
+    'Create {subject} guide',
+    'Write {subject} documentation',
+    'Update {subject} docs'
+  ],
+  meeting: [
+    'Schedule {subject} meeting',
+    'Discuss {subject} requirements',
+    'Review {subject} progress',
+    'Plan {subject} strategy'
+  ],
+  research: [
+    'Research {subject} options',
+    'Investigate {subject} solutions',
+    'Analyze {subject} requirements',
+    'Study {subject} alternatives'
+  ],
+  deployment: [
+    'Deploy {subject} to production',
+    'Release {subject} update',
+    'Launch {subject} feature',
+    'Ship {subject} version'
+  ],
+  maintenance: [
+    'Optimize {subject} performance',
+    'Refactor {subject} code',
+    'Update {subject} dependencies',
+    'Maintain {subject} system'
+  ]
 }
 
-// Free AI suggestion engine class
+// Enhanced AI suggestion engine
 export class TaskSuggestionEngine {
   private lookups: any
   
@@ -106,15 +148,20 @@ export class TaskSuggestionEngine {
     this.lookups = lookups
   }
 
-  // Main suggestion generator
+  // Main suggestion generator with improved logic
   generateSuggestions(noteContent: string, noteTitle?: string): TaskSuggestion[] {
-    const content = `${noteTitle || ''} ${noteContent}`.toLowerCase()
+    const fullText = `${noteTitle || ''} ${noteContent}`.toLowerCase().trim()
+    
+    if (fullText.length < 10) {
+      return [] // Not enough content to analyze
+    }
+
     const suggestions: TaskSuggestion[] = []
     
     // Generate suggestions for each category
     Object.entries(AI_PATTERNS).forEach(([category, pattern]) => {
-      const suggestion = this.analyzeCategoryMatch(content, category as keyof typeof AI_PATTERNS, pattern)
-      if (suggestion) {
+      const suggestion = this.analyzeCategoryMatch(fullText, category as keyof typeof AI_PATTERNS, pattern, noteTitle)
+      if (suggestion && suggestion.confidence >= 60) { // Higher confidence threshold
         suggestions.push(suggestion)
       }
     })
@@ -125,207 +172,163 @@ export class TaskSuggestionEngine {
       .slice(0, 5)
   }
 
-  // Analyze content for specific category
+  // Enhanced category analysis
   private analyzeCategoryMatch(
-    content: string, 
-    category: keyof typeof AI_PATTERNS, 
-    pattern: typeof AI_PATTERNS[keyof typeof AI_PATTERNS]
+    content: string,
+    category: keyof typeof AI_PATTERNS,
+    pattern: typeof AI_PATTERNS[keyof typeof AI_PATTERNS],
+    noteTitle?: string
   ): TaskSuggestion | null {
     
-    let score = 0
+    let keywordScore = 0
+    let phraseScore = 0
     let foundKeywords: string[] = []
     let foundPhrases: string[] = []
+    let contextSubject = this.extractContextSubject(content, noteTitle)
 
-    // Check keywords
+    // Enhanced keyword detection
     pattern.keywords.forEach(keyword => {
-      if (content.includes(keyword)) {
-        score += 1
-        foundKeywords.push(keyword)
+      const regex = new RegExp(`\\b${keyword}\\b`, 'gi')
+      const matches = content.match(regex)
+      if (matches) {
+        keywordScore += matches.length * 10
+        if (!foundKeywords.includes(keyword)) {
+          foundKeywords.push(keyword)
+        }
       }
     })
 
-    // Check phrases (higher weight)
+    // Enhanced phrase detection  
     pattern.phrases.forEach(phrase => {
-      if (content.includes(phrase)) {
-        score += 2
+      if (content.includes(phrase.toLowerCase())) {
+        phraseScore += 25
         foundPhrases.push(phrase)
       }
     })
 
-    // Must have at least some relevance
-    if (score === 0) return null
+    const totalScore = keywordScore + phraseScore
+    
+    // Must have some relevance
+    if (totalScore === 0) return null
 
-    // Calculate confidence (0-100)
-    const maxPossibleScore = pattern.keywords.length + (pattern.phrases.length * 2)
-    const confidence = Math.round((score / maxPossibleScore) * 100)
+    // Calculate confidence with better logic
+    const maxPossibleScore = (pattern.keywords.length * 10) + (pattern.phrases.length * 25)
+    let confidence = Math.round((totalScore / maxPossibleScore) * 100)
+    
+    // Boost confidence based on category weight
+    confidence = Math.min(95, confidence * pattern.confidenceWeight)
     
     // Must meet minimum confidence threshold
-    if (confidence < 20) return null
+    if (confidence < 60) return null
 
-    // Generate task title and description
-    const { title, description } = this.generateTaskContent(category, foundKeywords, foundPhrases, content)
+    // Generate smart task content
+    const { title, description } = this.generateSmartTaskContent(
+      category, 
+      contextSubject, 
+      foundKeywords, 
+      foundPhrases
+    )
     
-    // Map to actual database IDs
-    const moduleId = this.findBestModuleMatch(content)
-    const taskTypeId = this.findBestTaskTypeMatch(pattern.type)
-    const devDeptId = this.findBestDepartmentMatch(content)
-
     return {
-      id: `suggestion-${category}-${Date.now()}`,
+      id: `suggestion-${category}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title,
       description,
       type: pattern.type,
-      priority: this.calculatePriority(category, foundKeywords, content),
+      priority: this.calculateSmartPriority(category, foundKeywords, content),
       estimatedTime: pattern.estimatedTime,
       confidence,
-      reasoning: this.generateReasoning(foundKeywords, foundPhrases, confidence),
-      moduleId,
-      taskTypeId,
-      devDeptId,
-      tags: [...foundKeywords, category],
+      reasoning: this.generateSmartReasoning(foundKeywords, foundPhrases, confidence),
+      moduleId: this.findBestModuleMatch(content),
+      taskTypeId: this.findBestTaskTypeMatch(pattern.type),
+      devDeptId: this.findBestDepartmentMatch(content),
+      tags: this.generateSmartTags(foundKeywords, contextSubject, category),
       category: category as TaskSuggestion['category']
     }
   }
 
-  // Generate contextual task content
-  private generateTaskContent(
-    category: keyof typeof AI_PATTERNS, 
-    keywords: string[], 
-    phrases: string[],
-    fullContent: string
-  ): { title: string; description: string } {
-    
-    const templates = {
-      bug_fix: {
-        titles: [
-          `Fix ${keywords[0]} issue`,
-          `Resolve ${keywords[0]} problem`,
-          `Debug ${keywords[0]} error`
-        ],
-        descriptions: [
-          `Investigate and fix the ${keywords[0]} issue mentioned in the notes.`,
-          `Debug and resolve the ${keywords[0]} problem affecting functionality.`,
-          `Address the ${keywords[0]} error to improve system stability.`
-        ]
-      },
-      feature: {
-        titles: [
-          `Implement ${keywords[0]} feature`,
-          `Add ${keywords[0]} functionality`,
-          `Develop ${keywords[0]} component`
-        ],
-        descriptions: [
-          `Develop and implement the ${keywords[0]} feature as described.`,
-          `Create new ${keywords[0]} functionality to enhance the application.`,
-          `Build the ${keywords[0]} component according to specifications.`
-        ]
-      },
-      testing: {
-        titles: [
-          `Write tests for ${keywords[0]}`,
-          `Test ${keywords[0]} functionality`,
-          `QA validation for ${keywords[0]}`
-        ],
-        descriptions: [
-          `Create comprehensive tests for ${keywords[0]} functionality.`,
-          `Perform quality assurance testing on ${keywords[0]} features.`,
-          `Write unit and integration tests to ensure ${keywords[0]} reliability.`
-        ]
-      },
-      documentation: {
-        titles: [
-          `Document ${keywords[0]} process`,
-          `Create ${keywords[0]} guide`,
-          `Update ${keywords[0]} documentation`
-        ],
-        descriptions: [
-          `Create comprehensive documentation for ${keywords[0]} procedures.`,
-          `Write user guide for ${keywords[0]} functionality.`,
-          `Update existing documentation to include ${keywords[0]} information.`
-        ]
-      },
-      meeting: {
-        titles: [
-          `Schedule ${keywords[0]} meeting`,
-          `${keywords[0]} discussion session`,
-          `Team sync on ${keywords[0]}`
-        ],
-        descriptions: [
-          `Organize ${keywords[0]} meeting with relevant stakeholders.`,
-          `Schedule discussion session to address ${keywords[0]} topics.`,
-          `Plan team sync to review ${keywords[0]} progress and decisions.`
-        ]
-      },
-      research: {
-        titles: [
-          `Research ${keywords[0]} options`,
-          `Investigate ${keywords[0]} solutions`,
-          `Analyze ${keywords[0]} requirements`
-        ],
-        descriptions: [
-          `Conduct thorough research on ${keywords[0]} alternatives and solutions.`,
-          `Investigate best practices for ${keywords[0]} implementation.`,
-          `Analyze requirements and constraints for ${keywords[0]} project.`
-        ]
-      },
-      deployment: {
-        titles: [
-          `Deploy ${keywords[0]} to production`,
-          `Release ${keywords[0]} update`,
-          `Launch ${keywords[0]} feature`
-        ],
-        descriptions: [
-          `Deploy ${keywords[0]} changes to production environment.`,
-          `Release ${keywords[0]} update with proper testing and validation.`,
-          `Launch ${keywords[0]} feature to end users with monitoring.`
-        ]
-      },
-      maintenance: {
-        titles: [
-          `Maintain ${keywords[0]} system`,
-          `Update ${keywords[0]} dependencies`,
-          `Optimize ${keywords[0]} performance`
-        ],
-        descriptions: [
-          `Perform maintenance tasks for ${keywords[0]} system components.`,
-          `Update ${keywords[0]} dependencies and security patches.`,
-          `Optimize ${keywords[0]} performance and resource usage.`
-        ]
+  // Extract meaningful subject from content
+  private extractContextSubject(content: string, noteTitle?: string): string {
+    // Try to extract a meaningful subject from title first
+    if (noteTitle && noteTitle.length > 3) {
+      const cleanTitle = noteTitle.toLowerCase()
+        .replace(/\b(the|a|an|and|or|but|in|on|at|to|for|of|with|by)\b/g, '')
+        .trim()
+      
+      const words = cleanTitle.split(' ').filter(word => word.length > 2)
+      if (words.length > 0) {
+        return words[0] // Return the first meaningful word
       }
     }
 
-    const template = templates[category]
-    const randomTitle = template.titles[Math.floor(Math.random() * template.titles.length)]
-    const randomDescription = template.descriptions[Math.floor(Math.random() * template.descriptions.length)]
+    // Extract from content
+    const sentences = content.split(/[.!?]/).filter(s => s.trim().length > 10)
+    if (sentences.length > 0) {
+      const firstSentence = sentences[0].trim()
+      const words = firstSentence.split(' ')
+        .filter(word => word.length > 3 && !/\b(the|and|that|this|will|need|should)\b/.test(word))
+      
+      if (words.length > 0) {
+        return words[0].replace(/[^a-zA-Z]/g, '') // Clean the word
+      }
+    }
+
+    return 'system' // Fallback
+  }
+
+  // Generate smart task content
+  private generateSmartTaskContent(
+    category: keyof typeof AI_PATTERNS,
+    subject: string,
+    keywords: string[],
+    phrases: string[]
+  ): { title: string; description: string } {
+    
+    const templates = SMART_TITLES[category]
+    const randomTemplate = templates[Math.floor(Math.random() * templates.length)]
+    
+    // Create meaningful title
+    const title = randomTemplate.replace('{subject}', subject)
+    
+    // Create contextual description
+    const descriptions = {
+      bug_fix: `Investigate and resolve the ${subject} issue. Address the problem affecting system functionality and ensure proper testing.`,
+      feature: `Develop and implement the ${subject} feature according to requirements. Create necessary components and integrate with existing system.`,
+      testing: `Create comprehensive tests for ${subject} functionality. Include unit tests, integration tests, and validation scenarios.`,
+      documentation: `Create detailed documentation for ${subject}. Include usage examples, API references, and user guides.`,
+      meeting: `Organize and conduct ${subject} meeting with relevant stakeholders. Discuss requirements, progress, and next steps.`,
+      research: `Research and analyze ${subject} options and solutions. Evaluate alternatives and provide recommendations.`,
+      deployment: `Deploy ${subject} to production environment. Ensure proper testing, monitoring, and rollback procedures.`,
+      maintenance: `Perform maintenance tasks for ${subject}. Update dependencies, optimize performance, and clean up code.`
+    }
 
     return {
-      title: randomTitle,
-      description: randomDescription
+      title: title,
+      description: descriptions[category]
     }
   }
 
-  // Calculate dynamic priority based on context
-  private calculatePriority(
+  // Enhanced priority calculation
+  private calculateSmartPriority(
     category: keyof typeof AI_PATTERNS,
     keywords: string[],
     content: string
   ): 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' {
     
+    const urgentWords = ['urgent', 'asap', 'immediately', 'critical', 'emergency', 'production', 'live', 'broken']
+    const highWords = ['important', 'priority', 'soon', 'deadline', 'breaking', 'issue', 'problem']
+    
     let priorityScore = 0
     
-    // Base priority from category
+    // Base score from category
     const basePriority = AI_PATTERNS[category].priority
     switch (basePriority) {
       case 'LOW': priorityScore = 1; break
-      case 'MEDIUM': priorityScore = 2; break  
+      case 'MEDIUM': priorityScore = 2; break
       case 'HIGH': priorityScore = 3; break
       case 'URGENT': priorityScore = 4; break
     }
 
-    // Urgency indicators
-    const urgentWords = ['urgent', 'asap', 'immediately', 'critical', 'emergency', 'production', 'live']
-    const highWords = ['important', 'priority', 'soon', 'deadline', 'breaking']
-    
+    // Check for urgency indicators
     urgentWords.forEach(word => {
       if (content.includes(word)) priorityScore += 2
     })
@@ -335,26 +338,55 @@ export class TaskSuggestionEngine {
     })
 
     // Convert score to priority
-    if (priorityScore >= 5) return 'URGENT'
-    if (priorityScore >= 4) return 'HIGH'  
+    if (priorityScore >= 6) return 'URGENT'
+    if (priorityScore >= 4) return 'HIGH'
     if (priorityScore >= 2) return 'MEDIUM'
     return 'LOW'
   }
 
-  // Generate reasoning for suggestion
-  private generateReasoning(keywords: string[], phrases: string[], confidence: number): string {
-    const keywordList = keywords.length > 0 ? keywords.join(', ') : 'none'
-    const phraseList = phrases.length > 0 ? phrases.join(', ') : 'none'
+  // Generate smart reasoning
+  private generateSmartReasoning(keywords: string[], phrases: string[], confidence: number): string {
+    const keywordText = keywords.length > 0 ? keywords.slice(0, 3).join(', ') : 'general context'
+    const phraseText = phrases.length > 0 ? phrases.length : 0
     
-    return `Found keywords: ${keywordList}. Detected phrases: ${phraseList}. Confidence: ${confidence}%`
+    return `Detected keywords: ${keywordText}. Found ${phraseText} relevant phrases. Analysis confidence: ${confidence}%`
   }
 
-  // Find best matching module from database
+  // Generate smart tags
+  private generateSmartTags(keywords: string[], subject: string, category: string): string[] {
+    const tags = new Set<string>()
+    
+    // Add category
+    tags.add(category.replace('_', '-'))
+    
+    // Add subject if meaningful
+    if (subject && subject.length > 2 && subject !== 'system') {
+      tags.add(subject.toLowerCase())
+    }
+    
+    // Add relevant keywords (max 3)
+    keywords.slice(0, 3).forEach(keyword => {
+      if (keyword.length > 2) {
+        tags.add(keyword.toLowerCase())
+      }
+    })
+    
+    return Array.from(tags).slice(0, 5) // Limit to 5 tags
+  }
+
+  // Find best matching module (same as before)
   private findBestModuleMatch(content: string): string | undefined {
     if (!this.lookups?.modules) return undefined
     
-    // Check technology keywords
-    for (const [tech, moduleName] of Object.entries(TECH_MODULE_MAPPING)) {
+    const techMapping = {
+      'react': 'Frontend',
+      'api': 'Backend',
+      'database': 'Database',
+      'mobile': 'Mobile',
+      'ui': 'Frontend'
+    }
+
+    for (const [tech, moduleName] of Object.entries(techMapping)) {
       if (content.includes(tech)) {
         const module = this.lookups.modules.find((m: any) => 
           m.name.toLowerCase().includes(moduleName.toLowerCase())
@@ -363,7 +395,6 @@ export class TaskSuggestionEngine {
       }
     }
 
-    // Fallback to first available module
     return this.lookups.modules[0]?.id
   }
 
@@ -382,10 +413,10 @@ export class TaskSuggestionEngine {
     if (!this.lookups?.departments) return undefined
     
     const deptKeywords = {
-      'frontend': ['frontend', 'ui', 'react', 'css', 'html'],
-      'backend': ['backend', 'api', 'server', 'database'],
-      'qa': ['test', 'testing', 'quality', 'qa'],
-      'devops': ['deploy', 'deployment', 'docker', 'ci/cd']
+      'frontend': ['frontend', 'ui', 'react', 'css', 'html', 'component'],
+      'backend': ['backend', 'api', 'server', 'database', 'endpoint'],
+      'qa': ['test', 'testing', 'quality', 'qa', 'validation'],
+      'devops': ['deploy', 'deployment', 'docker', 'ci/cd', 'production']
     }
 
     for (const [dept, keywords] of Object.entries(deptKeywords)) {
