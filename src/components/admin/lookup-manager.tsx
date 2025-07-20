@@ -296,7 +296,7 @@ export function LookupManager({ isOpen, onClose }: LookupManagerProps) {
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-[100vw] w-full max-h-[95vh] overflow-hidden">
+        <DialogContent className="max-w-4xl w-full max-h-[80vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 text-2xl">
               <Database className="h-7 w-7 text-primary" />
