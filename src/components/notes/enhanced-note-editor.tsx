@@ -234,7 +234,7 @@ export function EnhancedNoteEditor({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2 text-lg">

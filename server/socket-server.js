@@ -1,7 +1,7 @@
 // server/socket-server.js (CORRECTED VERSION)
-const { createServer } = require('http')
-const { Server } = require('socket.io')
-const next = require('next')
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import next from 'next';
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = 'localhost'
