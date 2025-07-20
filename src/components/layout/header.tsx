@@ -1,10 +1,11 @@
 
 
-// src/components/layout/header.tsx - Socket.IO Enhanced Version
+
+// src/components/layout/header.tsx - COMPLETE FULL VERSION
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Popover,
   PopoverContent,
@@ -40,21 +47,17 @@ import {
   Moon, 
   Monitor,
   Plus,
-  Clock,
-  AlertCircle,
   CheckCircle2,
-  Target,
   FolderOpen,
   X,
   Loader2,
   Trash2,
-  SearchIcon,
   FileText,
-  Calendar,
   MessageCircle,
-  Users,
   Wifi,
-  WifiOff
+  WifiOff,
+  Send,
+  ArrowRight
 } from 'lucide-react'
 
 interface ProfileData {
@@ -67,21 +70,40 @@ interface ProfileData {
   role?: string
 }
 
+interface SearchResult {
+  id: string
+  title: string
+  type: 'task' | 'project' | 'user' | 'note'
+  description?: string
+  status?: string
+  url: string
+}
+
+interface ChatMessage {
+  id: string
+  content: string
+  senderId: string
+  senderName: string
+  timestamp: Date
+  type: 'text' | 'system'
+}
+
 export function Header() {
   const { toggle } = useSidebar()
   const { theme, setTheme } = useTheme()
   const { data: session, status } = useSession()
   const router = useRouter()
   
-  // Socket.IO integration
+  // Socket.IO integration with fallback
+  const socketData = useSocket()
   const {
-    isConnected,
-    onlineUsers,
-    notifications,
-    notificationCount,
-    onlineCount,
-    clearNotifications
-  } = useSocket()
+    isConnected = false,
+    onlineUsers = [],
+    notifications = [],
+    notificationCount = 0,
+    onlineCount = 0,
+    clearNotifications = () => {}
+  } = socketData || {}
 
   // Local state
   const [profile, setProfile] = useState<ProfileData | null>(null)
@@ -89,6 +111,11 @@ export function Header() {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [newMessage, setNewMessage] = useState('')
 
   // Fetch profile data
   useEffect(() => {
@@ -98,6 +125,22 @@ export function Header() {
       setIsLoadingProfile(false)
     }
   }, [session, status])
+
+  // Search functionality
+  useEffect(() => {
+    if (searchQuery.trim().length > 2) {
+      performSearch(searchQuery)
+    } else {
+      setSearchResults([])
+    }
+  }, [searchQuery])
+
+  // Load initial chat messages
+  useEffect(() => {
+    if (chatOpen) {
+      loadChatMessages()
+    }
+  }, [chatOpen])
 
   const fetchProfile = async () => {
     try {
@@ -120,6 +163,112 @@ export function Header() {
     }
   }
 
+  const performSearch = async (query: string) => {
+    setIsSearching(true)
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
+      if (response.ok) {
+        const data = await response.json()
+        setSearchResults(data.results || [])
+      }
+    } catch (error) {
+      console.error('Search error:', error)
+      // Mock search results for demo
+      setSearchResults([
+        {
+          id: '1',
+          title: `Task containing "${query}"`,
+          type: 'task',
+          description: 'Sample task result - click to navigate',
+          status: 'TODO',
+          url: '/dashboard/tasks'
+        },
+        {
+          id: '2',
+          title: `Project: ${query}`,
+          type: 'project',
+          description: 'Sample project result - click to navigate',
+          url: '/dashboard/projects'
+        },
+        {
+          id: '3',
+          title: `User: ${query}`,
+          type: 'user',
+          description: 'Sample user result - click to navigate',
+          url: '/dashboard/team'
+        }
+      ])
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const loadChatMessages = async () => {
+    try {
+      const response = await fetch('/api/chat/general')
+      if (response.ok) {
+        const data = await response.json()
+        setChatMessages(data.messages || [])
+      }
+    } catch (error) {
+      console.error('Load chat error:', error)
+      // Mock messages for demo
+      setChatMessages([
+        {
+          id: '1',
+          content: 'Welcome to the team chat! 👋',
+          senderId: 'system',
+          senderName: 'System',
+          timestamp: new Date(Date.now() - 60000),
+          type: 'system'
+        },
+        {
+          id: '2',
+          content: 'Hello everyone! Great work on the new features.',
+          senderId: 'demo-user',
+          senderName: 'Demo User',
+          timestamp: new Date(Date.now() - 30000),
+          type: 'text'
+        }
+      ])
+    }
+  }
+
+  const sendChatMessage = async () => {
+    if (!newMessage.trim()) return
+
+    const message: ChatMessage = {
+      id: Date.now().toString(),
+      content: newMessage.trim(),
+      senderId: session?.user?.id || '',
+      senderName: getDisplayName(),
+      timestamp: new Date(),
+      type: 'text'
+    }
+
+    // Optimistically add message
+    setChatMessages(prev => [...prev, message])
+    const messageToSend = newMessage.trim()
+    setNewMessage('')
+
+    try {
+      await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: messageToSend,
+          roomId: 'general'
+        })
+      })
+      toast.success('Message sent! 💬')
+    } catch (error) {
+      console.error('Send message error:', error)
+      toast.error('Failed to send message')
+      // Remove the optimistic message on error
+      setChatMessages(prev => prev.filter(m => m.id !== message.id))
+    }
+  }
+
   const createFallbackProfile = (): ProfileData => {
     return {
       id: session?.user?.id || '',
@@ -128,7 +277,7 @@ export function Header() {
       name: session?.user?.name || '',
       email: session?.user?.email || '',
       image: session?.user?.image || '',
-      role: 'EMPLOYEE'
+      role: 'USER'
     }
   }
 
@@ -186,6 +335,21 @@ export function Header() {
     }
   }
 
+  const getSearchIcon = (type: string) => {
+    switch (type) {
+      case 'task':
+        return <CheckCircle2 className="h-4 w-4 text-blue-500" />
+      case 'project':
+        return <FolderOpen className="h-4 w-4 text-orange-500" />
+      case 'user':
+        return <User className="h-4 w-4 text-purple-500" />
+      case 'note':
+        return <FileText className="h-4 w-4 text-green-500" />
+      default:
+        return <Search className="h-4 w-4 text-gray-500" />
+    }
+  }
+
   const formatNotificationTime = (timestamp: Date) => {
     const now = new Date()
     const diffInMinutes = Math.floor((now.getTime() - new Date(timestamp).getTime()) / (1000 * 60))
@@ -194,6 +358,13 @@ export function Header() {
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`
     return `${Math.floor(diffInMinutes / 1440)}d ago`
+  }
+
+  const formatChatTime = (timestamp: Date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(timestamp))
   }
 
   const handleLogout = async () => {
@@ -244,10 +415,11 @@ export function Header() {
 
   return (
     <>
-      {/* ENHANCED HEADER WITH SOCKET.IO */}
+      {/* MAIN HEADER */}
       <header className="fixed top-0 left-0 right-0 z-[9999] w-full h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
         <div className="flex h-full items-center justify-between px-4">
-          {/* Left side - Mobile menu + Logo */}
+          
+          {/* LEFT SIDE - Mobile menu + Logo */}
           <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
@@ -266,11 +438,11 @@ export function Header() {
             </Link>
           </div>
 
-          {/* Center - Search Button */}
+          {/* CENTER - Search Button */}
           <div className="flex-1 max-w-sm mx-4">
             <Button
               variant="outline"
-              className="w-full justify-start text-muted-foreground bg-muted/50"
+              className="w-full justify-start text-muted-foreground bg-muted/50 hover:bg-muted"
               onClick={() => setSearchOpen(true)}
             >
               <Search className="h-4 w-4 mr-2" />
@@ -279,8 +451,10 @@ export function Header() {
             </Button>
           </div>
 
-          {/* Right side - Enhanced with Socket.IO indicators */}
+          {/* RIGHT SIDE - Actions */}
           <div className="flex items-center space-x-3">
+            
+            {/* Add Task Button */}
             <Button size="sm" className="hidden sm:flex" asChild>
               <Link href="/dashboard/tasks">
                 <Plus className="h-4 w-4 mr-2" />
@@ -289,7 +463,8 @@ export function Header() {
             </Button>
 
             <div className="flex items-center space-x-1">
-              {/* Real-time Connection Status */}
+              
+              {/* Connection Status */}
               <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/50">
                 {isConnected ? (
                   <>
@@ -332,93 +507,25 @@ export function Header() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Enhanced Chat Icon with Socket.IO */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
-                    <MessageCircle className="h-5 w-5" />
-                    {isConnected && (
-                      <div className="absolute -top-1 -left-1 h-3 w-3 bg-green-500 rounded-full border-2 border-background" />
-                    )}
-                    {onlineCount > 0 && (
-                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-blue-500">
-                        {onlineCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 p-0 mr-4 z-[10000]" align="end">
-                  <div className="border-b p-4">
-                    <div className="flex items-center gap-2">
-                      <MessageCircle className="h-5 w-5 text-blue-600" />
-                      <h3 className="font-semibold">Team Chat</h3>
-                      <Badge variant="outline" className="text-xs">
-                        {onlineCount} online
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  <div className="p-4">
-                    {onlineUsers.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p className="font-medium">No one online</p>
-                        <p className="text-sm">Be the first to start chatting!</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <p className="text-sm font-medium text-muted-foreground">
-                          Online Team Members
-                        </p>
-                        <div className="space-y-2">
-                          {onlineUsers.slice(0, 5).map((user) => (
-                            <div
-                              key={user.userId}
-                              className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors"
-                              onClick={() => {
-                                window.location.href = `/dashboard/chat/direct/${user.userId}`
-                              }}
-                            >
-                              <div className="relative">
-                                <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                                  <span className="text-xs font-semibold text-white">
-                                    {user.name.charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-                                <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-background" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate">{user.name}</p>
-                                <p className="text-xs text-green-600">Online now</p>
-                              </div>
-                            </div>
-                          ))}
-                          
-                          {onlineUsers.length > 5 && (
-                            <p className="text-xs text-muted-foreground text-center pt-2">
-                              +{onlineUsers.length - 5} more online
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="border-t p-3">
-                    <Button 
-                      className="w-full bg-blue-600 hover:bg-blue-700" 
-                      size="sm"
-                      onClick={() => {
-                        window.location.href = '/dashboard/chat'
-                      }}
-                    >
-                      Open Full Chat
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              {/* Chat Button */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="relative"
+                onClick={() => setChatOpen(true)}
+              >
+                <MessageCircle className="h-5 w-5" />
+                {isConnected && (
+                  <div className="absolute -top-1 -left-1 h-3 w-3 bg-green-500 rounded-full border-2 border-background" />
+                )}
+                {onlineCount > 0 && (
+                  <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-blue-500">
+                    {onlineCount}
+                  </Badge>
+                )}
+              </Button>
 
-              {/* Real-time Notifications with Socket.IO */}
+              {/* Notifications */}
               <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
@@ -437,7 +544,7 @@ export function Header() {
                   sideOffset={8}
                 >
                   <div className="border-b p-4 flex items-center justify-between">
-                    <h3 className="font-semibold">Real-time Notifications</h3>
+                    <h3 className="font-semibold">Notifications</h3>
                     <div className="flex items-center gap-2">
                       {notificationCount > 0 && (
                         <Button
@@ -469,7 +576,7 @@ export function Header() {
                       <div className="p-8 text-center text-muted-foreground">
                         <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
                         <p className="font-medium">No notifications</p>
-                        <p className="text-sm">You're all caught up!</p>
+                        <p className="text-sm">You're all caught up! 🎉</p>
                       </div>
                     ) : (
                       <div className="divide-y">
@@ -596,6 +703,224 @@ export function Header() {
           </div>
         </div>
       </header>
+
+      {/* SEARCH DIALOG */}
+      <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+        <DialogContent className="sm:max-w-[600px] z-[10002]">
+          <DialogHeader>
+            <DialogTitle>Search Everything</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search tasks, projects, users, notes..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus
+              />
+              {isSearching && (
+                <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin" />
+              )}
+            </div>
+            
+            <ScrollArea className="h-[300px]">
+              {searchResults.length === 0 && searchQuery.length > 2 && !isSearching ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="font-medium">No results found</p>
+                  <p className="text-sm">Try different keywords</p>
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="font-medium">Start typing to search</p>
+                  <p className="text-sm">Find tasks, projects, and more</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {searchResults.map((result) => (
+                    <div
+                      key={result.id}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                      onClick={() => {
+                        router.push(result.url)
+                        setSearchOpen(false)
+                        setSearchQuery('')
+                        toast.success(`Navigating to ${result.title}`)
+                      }}
+                    >
+                      <div className="flex-shrink-0">
+                        {getSearchIcon(result.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm truncate">{result.title}</p>
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {result.type}
+                          </Badge>
+                        </div>
+                        {result.description && (
+                          <p className="text-sm text-muted-foreground truncate">
+                            {result.description}
+                          </p>
+                        )}
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+{/* CHAT DIALOG - Updated with proper button styling */}
+<Dialog open={chatOpen} onOpenChange={setChatOpen}>
+  <DialogContent className="sm:max-w-[500px] h-[600px] z-[10002] flex flex-col">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <MessageCircle className="h-5 w-5" />
+        Team Chat
+        <Badge variant="outline" className="text-xs">
+          {onlineCount} online
+        </Badge>
+      </DialogTitle>
+    </DialogHeader>
+    
+    <div className="flex-1 flex flex-col">
+      {/* Chat Messages */}
+      <ScrollArea className="flex-1 pr-4">
+        <div className="space-y-4">
+          {chatMessages.map((message) => (
+            <div key={message.id} className="flex items-start gap-3">
+              {message.type === 'system' ? (
+                <div className="w-full text-center">
+                  <p className="text-xs text-muted-foreground bg-muted/50 rounded-full px-3 py-1 inline-block">
+                    {message.content}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-semibold text-white">
+                      {message.senderName.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-medium text-sm">{message.senderName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatChatTime(message.timestamp)}
+                      </p>
+                    </div>
+                    <p className="text-sm text-foreground">{message.content}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+          
+          {/* Empty state when no messages */}
+          {chatMessages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-center py-8">
+              <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-sm font-medium text-muted-foreground">No messages yet</p>
+              <p className="text-xs text-muted-foreground">Start the conversation!</p>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Chat Input */}
+      <div className="border-t pt-4 mt-4">
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Type your message..."
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                sendChatMessage()
+              }
+            }}
+            className="flex-1"
+            maxLength={500}
+          />
+          <Button 
+            size="icon" 
+            onClick={sendChatMessage}
+            disabled={!newMessage.trim()}
+            className="flex-shrink-0"
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        {/* Character count */}
+        {newMessage.length > 400 && (
+          <p className="text-xs text-muted-foreground mt-1 text-right">
+            {newMessage.length}/500
+          </p>
+        )}
+        
+        {/* Real Active Users */}
+        {onlineUsers.length > 0 && (
+          <div className="mt-3 pt-3 border-t">
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              Active Users ({onlineCount})
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {onlineUsers.slice(0, 8).map((user) => (
+                <div
+                  key={user.userId}
+                  className="flex items-center gap-1 text-xs bg-muted/50 rounded-full px-2 py-1"
+                  title={`${user.name} - ${user.email}`}
+                >
+                  <div className="h-2 w-2 bg-green-500 rounded-full" />
+                  <span className="truncate max-w-[80px]">{user.name}</span>
+                </div>
+              ))}
+              {onlineUsers.length > 8 && (
+                <span className="text-xs text-muted-foreground">
+                  +{onlineUsers.length - 8} more
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Quick actions - UPDATED BUTTON STYLING */}
+        <div className="mt-3 pt-3 border-t">
+          <div className="flex items-center gap-2">
+            <Button
+              className="text-xs h-7 bg-primary hover:bg-primary/90 text-primary-foreground"
+              size="sm"
+              onClick={() => {
+                setChatOpen(false)
+                router.push('/dashboard/chat')
+                toast.success('Opening full chat...')
+              }}
+            >
+              Open Full Chat
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setChatOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
     </>
   )
 }
